@@ -96,4 +96,24 @@ class ApiService {
       throw Exception('Network error during sendObservationStream: $e');
     }
   }
+
+  Future<void> confirmStagedData(String reviewId, String plantName, String size, String bagSize) async {
+    try {
+      final uri = _buildUri(ApiEndpoints.confirmReview);
+      final body = jsonEncode({
+        'reviewId': reviewId,
+        'plantName': plantName,
+        'size': size,
+        'bagSize': bagSize,
+      });
+
+      final response = await _apiClient.post(uri, body: body);
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to confirm data: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Network error during confirmStagedData: $e');
+    }
+  }
 }
