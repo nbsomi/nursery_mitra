@@ -5,8 +5,8 @@ class NurseryModel {
   final double longitude;
   final String address;
   final String phone;
-  final DateTime? firstSeenDate;
-  final DateTime? lastVerifiedDate;
+  final String firstSeenDate;
+  final String lastVerifiedDate;
 
   NurseryModel({
     required this.nurseryId,
@@ -15,24 +15,20 @@ class NurseryModel {
     required this.longitude,
     required this.address,
     required this.phone,
-    this.firstSeenDate,
-    this.lastVerifiedDate,
+    required this.firstSeenDate,
+    required this.lastVerifiedDate,
   });
 
   factory NurseryModel.fromJson(Map<String, dynamic> json) {
     return NurseryModel(
-      nurseryId: json['nurseryId'] as String,
-      name: json['name'] as String,
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
-      address: json['address'] as String,
-      phone: json['phone'] as String,
-      firstSeenDate: json['firstSeenDate'] != null
-          ? DateTime.parse(json['firstSeenDate'] as String)
-          : null,
-      lastVerifiedDate: json['lastVerifiedDate'] != null
-          ? DateTime.parse(json['lastVerifiedDate'] as String)
-          : null,
+      nurseryId: json['nurseryId'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
+      longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
+      address: json['address'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
+      firstSeenDate: json['firstSeenDate'] as String? ?? '',
+      lastVerifiedDate: json['lastVerifiedDate'] as String? ?? '',
     );
   }
 
@@ -44,8 +40,8 @@ class NurseryModel {
       'longitude': longitude,
       'address': address,
       'phone': phone,
-      'firstSeenDate': firstSeenDate?.toIso8601String(),
-      'lastVerifiedDate': lastVerifiedDate?.toIso8601String(),
+      'firstSeenDate': firstSeenDate,
+      'lastVerifiedDate': lastVerifiedDate,
     };
   }
 }

@@ -97,7 +97,7 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
         visitId: widget.visitId,
         nurseryId: widget.nurseryId,
         plantName: _plantNameController.text.trim(),
-        plantHeight: double.tryParse(_heightController.text.trim()) ?? 0.0,
+        plantHeight: _heightController.text.trim(),
         bagSize: _bagSizeController.text.trim(),
         remarks: _remarksController.text.trim(),
       );

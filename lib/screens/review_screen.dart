@@ -99,7 +99,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final confidenceScore = widget.reviewItem.confidenceScore;
+    final confidenceScore = widget.reviewItem.confidence;
     
     return Scaffold(
       appBar: AppBar(

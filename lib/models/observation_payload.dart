@@ -2,7 +2,7 @@ class ObservationPayload {
   final String visitId;
   final String nurseryId;
   final String plantName;
-  final double plantHeight;
+  final String plantHeight;
   final String bagSize;
   final String remarks;
 
@@ -17,12 +17,12 @@ class ObservationPayload {
 
   factory ObservationPayload.fromJson(Map<String, dynamic> json) {
     return ObservationPayload(
-      visitId: json['visitId'] as String,
-      nurseryId: json['nurseryId'] as String,
-      plantName: json['plantName'] as String,
-      plantHeight: (json['plantHeight'] as num).toDouble(),
-      bagSize: json['bagSize'] as String,
-      remarks: json['remarks'] as String,
+      visitId: json['visitId'] as String? ?? '',
+      nurseryId: json['nurseryId'] as String? ?? '',
+      plantName: json['plantName'] as String? ?? '',
+      plantHeight: json['plantHeight'] as String? ?? '',
+      bagSize: json['bagSize'] as String? ?? '',
+      remarks: json['remarks'] as String? ?? '',
     );
   }
 
