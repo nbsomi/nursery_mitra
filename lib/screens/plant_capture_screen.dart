@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 
+import '../core/constants/app_config.dart';
 import '../core/network/api_client.dart';
-import '../services/api_service.dart';
 import '../models/observation_payload.dart';
+import '../services/api_service.dart';
+import 'review_screen.dart';
 
 class PlantCaptureScreen extends StatefulWidget {
   final String nurseryId;
@@ -100,31 +102,64 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
         remarks: _remarksController.text.trim(),
       );
 
-      final review = await _apiService.sendObservationStream(
-        payload,
-        image.path,
-        _autoApprove,
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Observation Submitted. AI Confidence: ${(review.confidenceScore * 100).toStringAsFixed(1)}%'),
-            backgroundColor: Colors.green.shade800,
-          ),
+      if (AppConfig.processingTiming == ProcessingTiming.later) {
+        // Path A: ProcessingTiming.later
+        await _apiService.sendObservationStream(payload, image.path, _autoApprove);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Observation saved for later processing.'),
+              backgroundColor: Colors.green.shade800,
+            ),
+          );
+          _plantNameController.clear();
+          _heightController.clear();
+          _bagSizeController.clear();
+          _remarksController.clear();
+        }
+      } else {
+        // Path B: ProcessingTiming.immediate
+        final review = await _apiService.sendObservationStream(
+          payload,
+          image.path,
+          _autoApprove,
         );
-        // Reset form for next rapid-fire capture
-        _plantNameController.clear();
-        _heightController.clear();
-        _bagSizeController.clear();
-        _remarksController.clear();
+
+        if (mounted) {
+          if (_autoApprove) {
+            // Sub-Path 1: Auto-Approve ON
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Success! Data integrated immediately.'),
+                backgroundColor: Colors.green.shade800,
+              ),
+            );
+            Navigator.pop(context); // Go back to Home Dashboard
+          } else {
+            // Sub-Path 2: Auto-Approve OFF
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ReviewScreen(reviewItem: review),
+              ),
+            );
+          }
+        }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Submission failed: $e'),
-            backgroundColor: Colors.red.shade800,
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Network Error'),
+            content: Text('Failed to deliver payload to backend. Ensure tunnel is active.\n\nError: $e'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Dismiss'),
+              ),
+            ],
           ),
         );
       }
