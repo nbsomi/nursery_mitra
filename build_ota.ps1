@@ -39,7 +39,7 @@ if (-Not (Test-Path -Path $releasesDir)) {
 # 4. Copy the compiled APK to the backend
 Write-Host "`n[4/4] Deploying APK to backend..."
 $sourceApk = "build\app\outputs\flutter-apk\app-release.apk"
-$destApk = "$releasesDir\app-release.apk"
+$destApk = "$releasesDir\nurserymitra_$Version.apk"
 
 if (Test-Path $sourceApk) {
     Copy-Item -Path $sourceApk -Destination $destApk -Force

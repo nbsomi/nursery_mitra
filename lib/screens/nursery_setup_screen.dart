@@ -109,8 +109,8 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
       final placemarks = await placemarkFromCoordinates(lat, lng);
       if (placemarks.isNotEmpty) {
         final place = placemarks.first;
-        final address = [place.street, place.subLocality, place.locality, place.postalCode]
-            .where((s) => s != null && s.isNotEmpty)
+        final address = [place.street, place.subLocality, place.locality]
+            .where((s) => s != null && s.isNotEmpty && !s.contains('+'))
             .join(', ');
         if (mounted) {
           setState(() {
@@ -348,8 +348,6 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _buildMethodToggle(),
-                      const SizedBox(height: 24),
                       if (_selectedMethod == 0) _buildMethodAUI(),
                       if (_selectedMethod == 1) _buildMethodBUI(),
                       if (_selectedMethod == 2) _buildMethodCUI(),
@@ -481,33 +479,7 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
     );
   }
 
-  Widget _buildMethodToggle() {
-    return SegmentedButton<int>(
-      segments: const [
-        ButtonSegment(
-          value: 0,
-          label: Text('Auto'),
-          icon: Icon(Icons.camera_alt),
-        ),
-        ButtonSegment(
-          value: 1,
-          label: Text('Manual'),
-          icon: Icon(Icons.edit_location_alt),
-        ),
-        ButtonSegment(
-          value: 2,
-          label: Text('Existing'),
-          icon: Icon(Icons.list),
-        ),
-      ],
-      selected: {_selectedMethod},
-      onSelectionChanged: (Set<int> newSelection) {
-        setState(() {
-          _selectedMethod = newSelection.first;
-        });
-      },
-    );
-  }
+
 
   Widget _buildMethodAUI() {
     return Card(
@@ -642,7 +614,7 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Select Existing Nursery',
+              'Select Nursery',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -666,11 +638,14 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
                 // A circle with this area has a radius of ~113.5 meters.
                 final double tenAcresRadiusMeters = 113.5;
                 
-                final nurseries = _currentPosition != null 
+                final lat = _pickedLocation?.latitude ?? _currentPosition?.latitude;
+                final lng = _pickedLocation?.longitude ?? _currentPosition?.longitude;
+                
+                final nurseries = lat != null && lng != null
                     ? allNurseries.where((n) {
                         final distance = Geolocator.distanceBetween(
-                          _currentPosition!.latitude,
-                          _currentPosition!.longitude,
+                          lat,
+                          lng,
                           n.latitude,
                           n.longitude,
                         );
@@ -678,12 +653,23 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
                       }).toList()
                     : <NurseryModel>[]; // Wait for GPS to filter
 
-                if (_currentPosition == null) {
+                if (lat == null || lng == null) {
                   return const Text('Awaiting GPS fix to locate nearby nurseries...', style: TextStyle(color: Colors.orangeAccent));
                 }
                 
                 if (nurseries.isEmpty) {
-                  return const Text('No nurseries found within 10 acres of your current location.');
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('No nurseries found within 10 acres of your current location.'),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: () => setState(() => _selectedMethod = 1),
+                        icon: const Icon(Icons.add),
+                        label: const Text("Couldn't find the nursery? Add new."),
+                      ),
+                    ],
+                  );
                 }
                 
                 // Ensure the selected nursery is still in the filtered list, otherwise reset it
@@ -693,24 +679,34 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
                   });
                 }
 
-                return DropdownButtonFormField<NurseryModel>(
-                  decoration: InputDecoration(
-                    labelText: 'Nursery',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    prefixIcon: const Icon(Icons.park),
-                  ),
-                  value: _selectedNursery,
-                  items: nurseries.map((n) {
-                    return DropdownMenuItem<NurseryModel>(
-                      value: n,
-                      child: Text(n.name),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      _selectedNursery = val;
-                    });
-                  },
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    DropdownMenu<NurseryModel>(
+                      width: MediaQuery.of(context).size.width - 80, // Adjust width based on card padding
+                      label: const Text('Nursery'),
+                      leadingIcon: const Icon(Icons.park),
+                      enableFilter: true,
+                      initialSelection: _selectedNursery,
+                      dropdownMenuEntries: nurseries.map((n) {
+                        return DropdownMenuEntry<NurseryModel>(
+                          value: n,
+                          label: n.name,
+                        );
+                      }).toList(),
+                      onSelected: (val) {
+                        setState(() {
+                          _selectedNursery = val;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () => setState(() => _selectedMethod = 1),
+                      icon: const Icon(Icons.add),
+                      label: const Text("Couldn't find the nursery? Add new."),
+                    ),
+                  ],
                 );
               },
             ),
