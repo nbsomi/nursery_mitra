@@ -40,6 +40,7 @@ class PendingProcessing(Base):
 
     QueueID = Column(String, primary_key=True, index=True)
     NurseryID = Column(String, ForeignKey("nurseries.NurseryID"), nullable=False)
+    GroupId = Column(String, nullable=True, index=True) # Used to group multiple images of the same plant
     RawImagePath = Column(String, nullable=False)
     Status = Column(String, default="Pending") # 'Pending' or 'Processed'
     Timestamp = Column(DateTime(timezone=True), default=func.now())
@@ -61,3 +62,15 @@ class PendingReview(Base):
 
     # Relationships
     nursery = relationship("Nurseries", back_populates="pending_reviews")
+
+class ExpertFeedback(Base):
+    __tablename__ = "expert_feedback"
+
+    FeedbackID = Column(String, primary_key=True, index=True)
+    OriginalReviewID = Column(String, nullable=True)
+    ImagePath = Column(String, nullable=False)
+    PredictedName = Column(String, nullable=True)
+    CorrectedName = Column(String, nullable=True)
+    PredictedBagSize = Column(String, nullable=True)
+    CorrectedBagSize = Column(String, nullable=True)
+    Timestamp = Column(DateTime(timezone=True), default=func.now())

@@ -136,6 +136,22 @@ class ApiService {
     }
   }
 
+  Future<List<ReviewItemModel>> getPendingReviews() async {
+    try {
+      // Assuming a generic fetch without nurseryId for the dashboard
+      final response = await _apiClient.get(_buildUri('/observations/pending-reviews'));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List<dynamic> reviews = data['reviews'];
+        return reviews.map((json) => ReviewItemModel.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to fetch pending reviews: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Network error during getPendingReviews: $e');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> searchPlantsByNursery(String nurseryId) async {
     final url = _buildUri('/search/nursery/$nurseryId/plants');
     try {

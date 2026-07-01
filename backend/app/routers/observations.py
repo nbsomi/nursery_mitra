@@ -33,14 +33,22 @@ async def upload_observation(
     db: Session = Depends(get_db)
 ):
     # Decode fallback mapping if data was sent via stringified JSON payload
+    plant_name = None
     if payload:
         try:
             data = json.loads(payload)
             nursery_id = nursery_id or data.get("nurseryId")
             visit_id = visit_id or data.get("visitId")
             remarks = remarks or data.get("remarks")
+            plant_name = data.get("plantName")
         except Exception:
             pass
+            
+    group_id = None
+    if plant_name and '_' in plant_name:
+        group_id = plant_name.rsplit('_', 1)[0]
+    else:
+        group_id = str(uuid.uuid4())
             
     # Normalize auto-approve boolean if passed as a form string
     if autoApprove is not None:
@@ -74,6 +82,7 @@ async def upload_observation(
             pending_proc = PendingProcessing(
                 QueueID=queue_id,
                 NurseryID=nursery_id,
+                GroupId=group_id,
                 RawImagePath=file_path,
                 Status="Pending"
             )
@@ -140,5 +149,41 @@ async def upload_observation(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to process observation payload: {str(e)}"
+            detail=f"An error occurred while processing the observation: {str(e)}"
         )
+
+
+@router.get("/pending-reviews")
+def get_pending_reviews(
+    nursery_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Returns a list of all PendingReview items waiting for manual confirmation.
+    """
+    query = db.query(PendingReview).filter(PendingReview.Status == "Pending")
+    if nursery_id:
+        query = query.filter(PendingReview.NurseryID == nursery_id)
+        
+    reviews = query.all()
+    
+    # We must construct relative URLs for the static files
+    # The image path in DB is "backend/images/plants/xyz.jpg"
+    # We want to serve it as "/images/plants/xyz.jpg"
+    results = []
+    for r in reviews:
+        image_url = ""
+        if r.ImagePath:
+            image_url = "/" + r.ImagePath.split("backend/", 1)[-1] if "backend/" in r.ImagePath else r.ImagePath
+            
+        results.append({
+            "reviewId": r.ReviewID,
+            "nurseryId": r.NurseryID,
+            "extractedPlantName": r.ExtractedName or "",
+            "extractedSize": r.ExtractedSize or "",
+            "extractedBagSize": r.ExtractedBagSize or "",
+            "confidence": r.Confidence or 0.0,
+            "imageUrl": image_url
+        })
+        
+    return {"reviews": results}

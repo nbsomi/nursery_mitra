@@ -1,9 +1,11 @@
 import os
+import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.database import engine, Base
-from app.routers import telemetry, nursery, observations, ota, search
+from app.routers import telemetry, nursery, observations, ota, search, ml
 
 # Ensure the physical database directory exists prior to metadata creation
 os.makedirs("backend/database", exist_ok=True)
@@ -25,6 +27,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Expose static images
+app.mount("/images", StaticFiles(directory="backend/images"), name="images")
+
 @app.on_event("startup")
 async def startup_event():
     """
@@ -32,6 +37,10 @@ async def startup_event():
     Automatically generates the SQLite database file and tables on disk if they don't already exist.
     """
     Base.metadata.create_all(bind=engine)
+    
+    # Start the FIFO background ML worker
+    from app.core.worker import process_queue
+    asyncio.create_task(process_queue())
 
 from fastapi.responses import RedirectResponse
 
@@ -55,3 +64,4 @@ app.include_router(nursery.router)
 app.include_router(observations.router)
 app.include_router(ota.router)
 app.include_router(search.router)
+app.include_router(ml.router)

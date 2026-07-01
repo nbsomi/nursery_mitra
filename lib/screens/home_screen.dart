@@ -11,6 +11,7 @@ import '../core/network/api_client.dart';
 import '../services/api_service.dart';
 import 'nursery_setup_screen.dart';
 import 'search_screen.dart';
+import 'batch_review_list_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -343,6 +344,18 @@ class _HomeScreenState extends State<HomeScreen> {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const SearchScreen()),
+            );
+          },
+        ),
+        _buildActionTile(
+          context,
+          title: 'Batch Reviews',
+          icon: Icons.fact_check_outlined,
+          color: Colors.amber.shade800,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const BatchReviewListScreen()),
             );
           },
         ),

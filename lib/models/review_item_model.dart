@@ -4,6 +4,7 @@ class ReviewItemModel {
   final String extractedSize;
   final String extractedBagSize;
   final double confidence;
+  final String? imageUrl;
 
   ReviewItemModel({
     required this.reviewId,
@@ -11,6 +12,7 @@ class ReviewItemModel {
     required this.extractedSize,
     required this.extractedBagSize,
     required this.confidence,
+    this.imageUrl,
   });
 
   factory ReviewItemModel.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class ReviewItemModel {
       extractedSize: json['extractedSize'] as String? ?? '',
       extractedBagSize: json['extractedBagSize'] as String? ?? '',
       confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
+      imageUrl: json['imageUrl'] as String?,
     );
   }
 
@@ -30,6 +33,7 @@ class ReviewItemModel {
       'extractedSize': extractedSize,
       'extractedBagSize': extractedBagSize,
       'confidence': confidence,
+      'imageUrl': imageUrl,
     };
   }
 }
