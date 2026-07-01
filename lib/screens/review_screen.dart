@@ -186,7 +186,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         border: Border.all(color: color, width: 2),
         borderRadius: BorderRadius.circular(12),
       ),

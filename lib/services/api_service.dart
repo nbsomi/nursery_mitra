@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/constants/app_config.dart';
@@ -145,7 +146,7 @@ class ApiService {
       }
       return [];
     } catch (e) {
-      print('Error searching plants by nursery: $e');
+      debugPrint('Error searching plants by nursery: $e');
       return [];
     }
   }
@@ -160,7 +161,7 @@ class ApiService {
       }
       return [];
     } catch (e) {
-      print('Error searching by plant: $e');
+      debugPrint('Error searching by plant: $e');
       return [];
     }
   }
@@ -175,7 +176,7 @@ class ApiService {
       }
       return [];
     } catch (e) {
-      print('Error searching by plant and size: $e');
+      debugPrint('Error searching by plant and size: $e');
       return [];
     }
   }

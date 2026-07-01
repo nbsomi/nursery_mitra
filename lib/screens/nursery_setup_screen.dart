@@ -14,7 +14,7 @@ import 'package:latlong2/latlong.dart';
 import 'location_picker_screen.dart';
 
 class NurserySetupScreen extends StatefulWidget {
-  const NurserySetupScreen({Key? key}) : super(key: key);
+  const NurserySetupScreen({super.key});
 
   @override
   State<NurserySetupScreen> createState() => _NurserySetupScreenState();
@@ -27,7 +27,6 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
   Position? _currentPosition;
   LatLng? _pickedLocation;
   StreamSubscription<Position>? _positionStream;
-  bool _locationPermissionGranted = false;
   String? _resolvedAddress;
   bool _hasInitialGeocode = false;
 
@@ -86,10 +85,6 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
       return;
     }
 
-    setState(() {
-      _locationPermissionGranted = true;
-    });
-
     _positionStream = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.best,
@@ -108,7 +103,9 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
 
   Future<void> _updateAddress(double lat, double lng) async {
     try {
-      final List<String> addressParts = [];
+      final List<String> microLocalities = [];
+      final List<String> macroLocalities = [];
+      final List<String> states = [];
 
       Future<void> fetchNominatim() async {
         try {
@@ -118,14 +115,16 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
             final data = json.decode(response.body);
             if (data['address'] != null) {
               final addr = data['address'];
-              if (addr['village'] != null) addressParts.add(addr['village']);
-              if (addr['hamlet'] != null) addressParts.add(addr['hamlet']);
-              if (addr['suburb'] != null) addressParts.add(addr['suburb']);
-              if (addr['neighbourhood'] != null) addressParts.add(addr['neighbourhood']);
-              if (addr['road'] != null) addressParts.add(addr['road']);
-              if (addr['city'] != null) addressParts.add(addr['city']);
-              if (addr['county'] != null) addressParts.add(addr['county']);
-              if (addr['state'] != null) addressParts.add(addr['state']);
+              if (addr['village'] != null) microLocalities.add(addr['village']);
+              if (addr['hamlet'] != null) microLocalities.add(addr['hamlet']);
+              if (addr['suburb'] != null) microLocalities.add(addr['suburb']);
+              if (addr['neighbourhood'] != null) microLocalities.add(addr['neighbourhood']);
+              if (addr['road'] != null) microLocalities.add(addr['road']);
+              
+              if (addr['city'] != null) macroLocalities.add(addr['city']);
+              if (addr['county'] != null) macroLocalities.add(addr['county']);
+              
+              if (addr['state'] != null) states.add(addr['state']);
             }
           }
         } catch (e) {
@@ -139,9 +138,9 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
           final response = await http.get(url).timeout(const Duration(seconds: 4));
           if (response.statusCode == 200) {
             final data = json.decode(response.body);
-            if (data['locality'] != null) addressParts.add(data['locality']);
-            if (data['city'] != null) addressParts.add(data['city']);
-            if (data['principalSubdivision'] != null) addressParts.add(data['principalSubdivision']);
+            if (data['locality'] != null) microLocalities.add(data['locality']);
+            if (data['city'] != null) macroLocalities.add(data['city']);
+            if (data['principalSubdivision'] != null) states.add(data['principalSubdivision']);
           }
         } catch (e) {
           debugPrint('BigDataCloud error: $e');
@@ -153,15 +152,13 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
           final placemarks = await placemarkFromCoordinates(lat, lng).timeout(const Duration(seconds: 4));
           if (placemarks.isNotEmpty) {
             final place = placemarks.first;
-            addressParts.addAll([
-              place.name,
-              place.street,
-              place.thoroughfare,
-              place.subLocality,
-              place.locality,
-              place.subAdministrativeArea,
-              place.administrativeArea,
-            ].where((s) => s != null && s.isNotEmpty && !s.contains('+')).cast<String>());
+            if (place.name != null && place.name!.isNotEmpty) microLocalities.add(place.name!);
+            if (place.street != null && place.street!.isNotEmpty) microLocalities.add(place.street!);
+            if (place.thoroughfare != null && place.thoroughfare!.isNotEmpty) microLocalities.add(place.thoroughfare!);
+            if (place.subLocality != null && place.subLocality!.isNotEmpty) microLocalities.add(place.subLocality!);
+            if (place.locality != null && place.locality!.isNotEmpty) macroLocalities.add(place.locality!);
+            if (place.subAdministrativeArea != null && place.subAdministrativeArea!.isNotEmpty) macroLocalities.add(place.subAdministrativeArea!);
+            if (place.administrativeArea != null && place.administrativeArea!.isNotEmpty) states.add(place.administrativeArea!);
           }
         } catch (e) {
           debugPrint('Native Geocoding error: $e');
@@ -175,12 +172,76 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
         fetchNativeGeocoding(),
       ]);
       
-      // Clean up and format
-      final address = addressParts
-          .where((s) => s.isNotEmpty && !s.contains('+'))
-          .toSet() // Deduplicate overlapping data
-          .toList()
-          .join(', ');
+      // Helper function for phonetic similarity
+      int levenshtein(String a, String b) {
+        a = a.toLowerCase(); b = b.toLowerCase();
+        if (a == b) return 0;
+        if (a.isEmpty) return b.length;
+        if (b.isEmpty) return a.length;
+        List<int> v0 = List<int>.generate(b.length + 1, (i) => i);
+        List<int> v1 = List<int>.filled(b.length + 1, 0);
+        for (int i = 0; i < a.length; i++) {
+          v1[0] = i + 1;
+          for (int j = 0; j < b.length; j++) {
+            int cost = (a[i] == b[j]) ? 0 : 1;
+            int min = v1[j] + 1;
+            if (v0[j + 1] + 1 < min) min = v0[j + 1] + 1;
+            if (v0[j] + cost < min) min = v0[j] + cost;
+            v1[j + 1] = min;
+          }
+          for (int j = 0; j < v0.length; j++) {
+            v0[j] = v1[j];
+          }
+        }
+        return v1[b.length];
+      }
+
+      // Order: Micro -> Macro -> State
+      final allParts = [...microLocalities, ...macroLocalities, ...states];
+      final List<String> finalParts = [];
+
+      for (String p in allParts) {
+        String part = p.trim();
+        if (part.isEmpty || part.contains('+')) continue;
+        
+        // Remove short alphanumeric codes like 'mdr0214' or 'sh12'
+        if (RegExp(r'^[a-zA-Z0-9]+$').hasMatch(part) && RegExp(r'\d').hasMatch(part) && part.length < 10) continue;
+        // Remove pure numbers unless it's a 6 digit pincode (though we didn't add pincodes in this iteration)
+        if (RegExp(r'^\d+$').hasMatch(part) && part.length != 6) continue;
+
+        bool isDuplicate = false;
+        for (int i = 0; i < finalParts.length; i++) {
+          String existing = finalParts[i];
+          
+          // Check substring matching
+          if (existing.toLowerCase().contains(part.toLowerCase()) || part.toLowerCase().contains(existing.toLowerCase())) {
+            // Keep the longer/more detailed one
+            if (part.length > existing.length) {
+              finalParts[i] = part;
+            }
+            isDuplicate = true;
+            break;
+          }
+          
+          // Check phonetic similarity for spelling mismatches (e.g. Kadiam vs Kadiyam)
+          if (existing.length >= 4 && part.length >= 4) {
+            int dist = levenshtein(existing, part);
+            if (dist <= 2) { // 1 or 2 character difference
+              if (part.length > existing.length) {
+                finalParts[i] = part;
+              }
+              isDuplicate = true;
+              break;
+            }
+          }
+        }
+        
+        if (!isDuplicate) {
+          finalParts.add(part);
+        }
+      }
+
+      final address = finalParts.join(', ');
           
       if (mounted) {
         setState(() {

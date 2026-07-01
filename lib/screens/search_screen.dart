@@ -4,7 +4,7 @@ import '../services/api_service.dart';
 import '../models/nursery_model.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({Key? key}) : super(key: key);
+  const SearchScreen({super.key});
 
   @override
   _SearchScreenState createState() => _SearchScreenState();

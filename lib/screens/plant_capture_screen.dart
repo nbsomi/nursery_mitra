@@ -345,7 +345,7 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.amber.shade700, width: 2),
                                 borderRadius: BorderRadius.circular(12),
-                                color: Colors.amber.withOpacity(0.1),
+                                color: Colors.amber.withValues(alpha: 0.1),
                               ),
                               child: SwitchListTile(
                                 title: const Text(
@@ -353,7 +353,7 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
                                   style: TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 subtitle: const Text('Commit directly without manual review phase'),
-                                activeColor: Colors.amber.shade700,
+                                activeThumbColor: Colors.amber.shade700,
                                 value: _autoApprove,
                                 onChanged: (bool value) {
                                   setState(() {

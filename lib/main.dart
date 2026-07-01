@@ -7,7 +7,7 @@ void main() {
 }
 
 class NurseryMitraApp extends StatelessWidget {
-  const NurseryMitraApp({Key? key}) : super(key: key);
+  const NurseryMitraApp({super.key});
 
   @override
   Widget build(BuildContext context) {
