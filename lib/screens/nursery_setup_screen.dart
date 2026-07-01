@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:camera/camera.dart';
+import 'package:geocoding/geocoding.dart';
 
 import '../core/network/api_client.dart';
 import '../services/api_service.dart';
@@ -25,6 +26,8 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
   LatLng? _pickedLocation;
   StreamSubscription<Position>? _positionStream;
   bool _locationPermissionGranted = false;
+  String? _resolvedAddress;
+  bool _hasInitialGeocode = false;
 
   // Form State
   final TextEditingController _nameController = TextEditingController();
@@ -94,7 +97,30 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
       setState(() {
         _currentPosition = position;
       });
+      if (!_hasInitialGeocode && _pickedLocation == null) {
+        _hasInitialGeocode = true;
+        _updateAddress(position.latitude, position.longitude);
+      }
     });
+  }
+
+  Future<void> _updateAddress(double lat, double lng) async {
+    try {
+      final placemarks = await placemarkFromCoordinates(lat, lng);
+      if (placemarks.isNotEmpty) {
+        final place = placemarks.first;
+        final address = [place.street, place.subLocality, place.locality, place.postalCode]
+            .where((s) => s != null && s.isNotEmpty)
+            .join(', ');
+        if (mounted) {
+          setState(() {
+            _resolvedAddress = address;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Geocoding error: $e');
+    }
   }
 
   @override
@@ -379,6 +405,7 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
                       setState(() {
                         _pickedLocation = result;
                       });
+                      _updateAddress(result.latitude, result.longitude);
                     }
                   },
                   icon: const Icon(Icons.map, size: 14),
@@ -408,6 +435,14 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
                       'LNG: ${_pickedLocation?.longitude.toStringAsFixed(5) ?? _currentPosition!.longitude.toStringAsFixed(5)}',
                       style: const TextStyle(color: Colors.white, fontFamily: 'monospace'),
                     ),
+                    if (_resolvedAddress != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Text(
+                          _resolvedAddress!,
+                          style: const TextStyle(color: Colors.amberAccent, fontSize: 11),
+                        ),
+                      ),
                   ],
                 ),
                 if (_pickedLocation != null)

@@ -10,6 +10,7 @@
         "camera",
         "flutter",
         "flutter_map",
+        "geocoding",
         "geolocator",
         "http",
         "latlong2",
@@ -44,6 +45,16 @@
         "stream_channel",
         "test_api",
         "vector_math"
+      ]
+    },
+    {
+      "name": "geocoding",
+      "version": "4.0.0",
+      "dependencies": [
+        "flutter",
+        "geocoding_android",
+        "geocoding_ios",
+        "geocoding_platform_interface"
       ]
     },
     {
@@ -232,6 +243,31 @@
         "stream_channel",
         "string_scanner",
         "term_glyph"
+      ]
+    },
+    {
+      "name": "geocoding_ios",
+      "version": "3.1.0",
+      "dependencies": [
+        "flutter",
+        "geocoding_platform_interface"
+      ]
+    },
+    {
+      "name": "geocoding_android",
+      "version": "4.0.1",
+      "dependencies": [
+        "flutter",
+        "geocoding_platform_interface"
+      ]
+    },
+    {
+      "name": "geocoding_platform_interface",
+      "version": "3.2.0",
+      "dependencies": [
+        "flutter",
+        "meta",
+        "plugin_platform_interface"
       ]
     },
     {
