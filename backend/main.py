@@ -33,6 +33,22 @@ async def startup_event():
     """
     Base.metadata.create_all(bind=engine)
 
+from fastapi.responses import RedirectResponse
+
+@app.get("/api/api/ota/latest", include_in_schema=False)
+def legacy_ota_latest_redirect():
+    """
+    Legacy bridge for versions of the app shipped with the double-api bug.
+    """
+    return RedirectResponse(url="/api/ota/latest")
+
+@app.get("/api/api/ota/download", include_in_schema=False)
+def legacy_ota_download_redirect():
+    """
+    Legacy bridge for versions of the app shipped with the double-api bug.
+    """
+    return RedirectResponse(url="/api/ota/download")
+
 # Explicitly register and include all structural sub-routers
 app.include_router(telemetry.router)
 app.include_router(nursery.router)

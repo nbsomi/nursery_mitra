@@ -136,7 +136,7 @@ class ApiService {
   }
 
   Future<List<Map<String, dynamic>>> searchPlantsByNursery(String nurseryId) async {
-    final url = _buildUri('/api/search/nursery/$nurseryId/plants');
+    final url = _buildUri('/search/nursery/$nurseryId/plants');
     try {
       final response = await _apiClient.get(url);
       if (response.statusCode == 200) {
@@ -151,7 +151,7 @@ class ApiService {
   }
 
   Future<List<Map<String, dynamic>>> searchByPlant(String name) async {
-    final url = _buildUri('/api/search/plants?name=${Uri.encodeComponent(name)}');
+    final url = _buildUri('/search/plants?name=${Uri.encodeComponent(name)}');
     try {
       final response = await _apiClient.get(url);
       if (response.statusCode == 200) {
@@ -166,7 +166,7 @@ class ApiService {
   }
 
   Future<List<Map<String, dynamic>>> searchByPlantAndSize(String name, double size) async {
-    final url = _buildUri('/api/search/plant-size?name=${Uri.encodeComponent(name)}&size=$size');
+    final url = _buildUri('/search/plant-size?name=${Uri.encodeComponent(name)}&size=$size');
     try {
       final response = await _apiClient.get(url);
       if (response.statusCode == 200) {

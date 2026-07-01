@@ -146,7 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final packageInfo = await PackageInfo.fromPlatform();
       final localVersion = packageInfo.version;
 
-      final response = await http.get(Uri.parse('${AppConfig.baseUrl}/api/ota/latest'));
+      final response = await http.get(Uri.parse('${AppConfig.baseUrl}/ota/latest'));
       
       if (context.mounted) Navigator.pop(context); // Close loading dialog
 

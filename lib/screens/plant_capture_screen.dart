@@ -245,41 +245,43 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
       ),
       body: Stack(
         children: [
-          // Banner for Nursery details
-          Container(
-            color: Colors.green.shade50,
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '📍 ${widget.nursery.name}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          Column(
+            children: [
+              // Banner for Nursery details
+              Container(
+                color: Colors.green.shade50,
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '📍 ${widget.nursery.name}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          if (widget.nursery.farmerName.isNotEmpty)
+                            Text(
+                              'Farmer: ${widget.nursery.farmerName}',
+                              style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+                            ),
+                        ],
                       ),
-                      if (widget.nursery.farmerName.isNotEmpty)
-                        Text(
-                          'Farmer: ${widget.nursery.farmerName}',
-                          style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
-                        ),
-                    ],
-                  ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.edit, size: 16),
+                      label: const Text('Change'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.green.shade800,
+                      ),
+                    ),
+                  ],
                 ),
-                TextButton.icon(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.edit, size: 16),
-                  label: const Text('Change'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.green.shade800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
+              ),
+              Expanded(
             child: Column(
               children: [
               // Live Viewfinder (Upper Half)
@@ -387,7 +389,6 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
               ),
             ],
           ),
-        ),
           
           if (_isSubmitting)
             Container(

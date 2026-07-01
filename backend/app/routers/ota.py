@@ -9,7 +9,7 @@ router = APIRouter(
 
 # Configuration for OTA
 # In a real production system, this could be read from the database or environment variable.
-TARGET_APP_VERSION = "1.0.1"
+TARGET_APP_VERSION = "1.0.2"
 APK_FILENAME = "app-release.apk"
 RELEASES_DIR = "backend/releases"
 
@@ -21,7 +21,7 @@ def check_latest_version():
     return {
         "version": TARGET_APP_VERSION,
         # Providing a relative path allows the flutter client to dynamically build the URL based on its configured base URL
-        "download_url": "/api/ota/download"
+        "download_url": "/ota/download"
     }
 
 @router.get("/download", response_class=FileResponse)
