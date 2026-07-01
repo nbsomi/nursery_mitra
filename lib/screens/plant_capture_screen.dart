@@ -30,7 +30,11 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
   late final ApiService _apiService;
   CameraController? _cameraController;
   bool _isCameraInitialized = false;
-  XFile? _capturedImage;
+  
+  final List<XFile> _capturedImages = [];
+  bool _isLiveCamera = true;
+  int _currentPreviewIndex = 0;
+  late PageController _pageController;
   
   bool _isSubmitting = false;
 
@@ -41,6 +45,7 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
   void initState() {
     super.initState();
     _apiService = ApiService(ApiClient());
+    _pageController = PageController(initialPage: 0);
     _loadSequences();
     _initializeCamera();
   }
@@ -56,12 +61,20 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
   }
 
   Future<void> _nextPlant() async {
+    if (_capturedImages.isNotEmpty) {
+       // Just in case they click Next Plant while they have unuploaded images
+       ScaffoldMessenger.of(context).showSnackBar(
+         const SnackBar(content: Text('Please upload or delete current photos first.')),
+       );
+       return;
+    }
     final prefs = await SharedPreferences.getInstance();
     final key = '${widget.nursery.nurseryId}_plantSeq';
     setState(() {
       _plantSeq++;
       _imageSeq = 1;
-      _capturedImage = null;
+      _capturedImages.clear();
+      _isLiveCamera = true;
     });
     await prefs.setInt(key, _plantSeq);
     if (mounted) {
@@ -96,23 +109,52 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
   @override
   void dispose() {
     _cameraController?.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
   Future<void> _takePicture() async {
     if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+    if (_capturedImages.length >= 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Maximum 10 images allowed per upload.')),
+      );
+      return;
+    }
+    
     try {
       final image = await _cameraController!.takePicture();
       setState(() {
-        _capturedImage = image;
+        _capturedImages.add(image);
+        _isLiveCamera = false;
+        _currentPreviewIndex = _capturedImages.length - 1;
+      });
+      // Delay jumping to page until the PageView is built
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pageController.hasClients) {
+          _pageController.jumpToPage(_currentPreviewIndex);
+        }
       });
     } catch (e) {
       debugPrint('Error taking picture: $e');
     }
   }
 
+  void _deleteImage(int index) {
+    setState(() {
+      _capturedImages.removeAt(index);
+      if (_capturedImages.isEmpty) {
+        _isLiveCamera = true;
+      } else {
+        if (_currentPreviewIndex >= _capturedImages.length) {
+          _currentPreviewIndex = _capturedImages.length - 1;
+        }
+      }
+    });
+  }
+
   Future<void> _uploadImage() async {
-    if (_capturedImage == null) return;
+    if (_capturedImages.isEmpty) return;
 
     setState(() {
       _isSubmitting = true;
@@ -147,7 +189,7 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
             context: context,
             builder: (ctx) => AlertDialog(
               title: const Text('Out of Range Warning'),
-              content: Text('You appear to be more than 10 acres away from ${widget.nursery.name}. Are you sure you want to add this plant to this nursery?'),
+              content: Text('You appear to be more than 10 acres away from ${widget.nursery.name}. Are you sure you want to add these plants to this nursery?'),
               actions: [
                 TextButton(
                   onPressed: () {
@@ -174,48 +216,57 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
         }
       }
       
-      final payload = ObservationPayload(
-        visitId: widget.visitId,
-        nurseryId: widget.nursery.nurseryId,
-        plantName: '${widget.nursery.nurseryId}_plant_${_plantSeq}_${_imageSeq}',
-        plantHeight: '',
-        bagSize: '',
-        remarks: '',
-      );
+      dynamic lastReview;
 
-      if (AppConfig.processingTiming == ProcessingTiming.later) {
-        // Path A: ProcessingTiming.later
-        await _apiService.sendObservationStream(payload, _capturedImage!.path, false);
+      for (int i = 0; i < _capturedImages.length; i++) {
+        final payload = ObservationPayload(
+          visitId: widget.visitId,
+          nurseryId: widget.nursery.nurseryId,
+          plantName: '${widget.nursery.nurseryId}_plant_${_plantSeq}_${_imageSeq}',
+          plantHeight: '',
+          bagSize: '',
+          remarks: '',
+        );
+
+        if (AppConfig.processingTiming == ProcessingTiming.later) {
+          // Path A: ProcessingTiming.later
+          await _apiService.sendObservationStream(payload, _capturedImages[i].path, false);
+        } else {
+          // Path B: ProcessingTiming.immediate
+          lastReview = await _apiService.sendObservationStream(
+            payload,
+            _capturedImages[i].path,
+            false,
+          );
+        }
         
-        if (mounted) {
+        setState(() {
+          _imageSeq++;
+        });
+      }
+
+      if (mounted) {
+        if (AppConfig.processingTiming == ProcessingTiming.later) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Photo captured and saved for batch processing.'),
+              content: Text('${_capturedImages.length} photo(s) captured and saved for batch processing.'),
               backgroundColor: Colors.green.shade800,
             ),
           );
           setState(() {
-            _imageSeq++;
-            _capturedImage = null; // Reset for the next photo
+            _capturedImages.clear();
+            _isLiveCamera = true;
           });
-        }
-      } else {
-        // Path B: ProcessingTiming.immediate
-        final review = await _apiService.sendObservationStream(
-          payload,
-          _capturedImage!.path,
-          false,
-        );
-
-        if (mounted) {
+        } else {
           setState(() {
-            _imageSeq++;
-            _capturedImage = null; // Reset for the next photo
+            _capturedImages.clear();
+            _isLiveCamera = true;
           });
+          // Show the review screen for the last item (as a placeholder for Real Time Review)
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => ReviewScreen(reviewItem: review),
+              builder: (context) => ReviewScreen(reviewItem: lastReview),
             ),
           );
         }
@@ -296,15 +347,26 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
                 child: Container(
                   width: double.infinity,
                   color: Colors.black,
-                  child: _capturedImage != null
-                      ? Center(
-                          child: AspectRatio(
-                            aspectRatio: 1 / _cameraController!.value.aspectRatio,
-                            child: Image.file(
-                              File(_capturedImage!.path),
-                              fit: BoxFit.cover,
-                            ),
-                          ),
+                  child: !_isLiveCamera && _capturedImages.isNotEmpty
+                      ? PageView.builder(
+                          controller: _pageController,
+                          onPageChanged: (index) {
+                            setState(() {
+                              _currentPreviewIndex = index;
+                            });
+                          },
+                          itemCount: _capturedImages.length,
+                          itemBuilder: (context, index) {
+                            return Center(
+                              child: AspectRatio(
+                                aspectRatio: 1 / _cameraController!.value.aspectRatio,
+                                child: Image.file(
+                                  File(_capturedImages[index].path),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            );
+                          },
                         )
                       : _isCameraInitialized
                           ? Center(
@@ -323,88 +385,145 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
                 child: SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: _capturedImage != null
-                    ? Row(
-                        children: [
-                          Expanded(
-                            child: SizedBox(
-                              height: 64,
-                              child: OutlinedButton.icon(
-                                onPressed: _isSubmitting ? null : () => setState(() => _capturedImage = null),
-                                icon: const Icon(Icons.refresh),
-                                label: const Text('Retake', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.green.shade800,
-                                  side: BorderSide(color: Colors.green.shade800, width: 2),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: !_isLiveCamera && _capturedImages.isNotEmpty
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                height: 64,
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: _capturedImages.length + (_capturedImages.length < 10 ? 1 : 0),
+                                  itemBuilder: (context, index) {
+                                    if (index == _capturedImages.length) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(left: 8.0),
+                                        child: InkWell(
+                                          onTap: () {
+                                            setState(() {
+                                              _isLiveCamera = true;
+                                            });
+                                          },
+                                          child: Container(
+                                            width: 64,
+                                            height: 64,
+                                            decoration: BoxDecoration(
+                                              border: Border.all(color: Colors.grey.shade400, width: 2),
+                                              borderRadius: BorderRadius.circular(8),
+                                              color: Colors.grey.shade200,
+                                            ),
+                                            child: const Icon(Icons.add, size: 32, color: Colors.grey),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 8.0),
+                                      child: Stack(
+                                        children: [
+                                          GestureDetector(
+                                            onTap: () {
+                                              _pageController.animateToPage(index, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                                            },
+                                            child: Container(
+                                              width: 64,
+                                              height: 64,
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                  color: _currentPreviewIndex == index ? Colors.green.shade800 : Colors.transparent,
+                                                  width: 3,
+                                                ),
+                                                borderRadius: BorderRadius.circular(8),
+                                                image: DecorationImage(
+                                                  image: FileImage(File(_capturedImages[index].path)),
+                                                  fit: BoxFit.cover,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          Positioned(
+                                            top: 0,
+                                            right: 0,
+                                            child: GestureDetector(
+                                              onTap: () => _deleteImage(index),
+                                              child: Container(
+                                                decoration: const BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  color: Colors.red,
+                                                ),
+                                                child: const Icon(Icons.close, size: 16, color: Colors.white),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: SizedBox(
-                              height: 64,
-                              child: ElevatedButton.icon(
-                                onPressed: _isSubmitting ? null : _uploadImage,
-                                icon: const Icon(Icons.cloud_upload),
-                                label: Text(
-                                  _isSubmitting ? 'Uploading...' : 'Upload',
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green.shade800,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                    : Row(
-                        children: [
-                          Expanded(
-                            flex: 1,
-                            child: SizedBox(
-                              height: 64,
-                              child: OutlinedButton(
-                                onPressed: _isSubmitting ? null : _nextPlant,
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.green.shade800,
-                                  side: BorderSide(color: Colors.green.shade800, width: 2),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                ),
-                                child: const Text('Next\nPlant', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            flex: 2,
-                            child: SizedBox(
-                              height: 64,
-                              child: ElevatedButton.icon(
-                                onPressed: _isSubmitting ? null : _takePicture,
-                                icon: const Icon(Icons.camera_alt, size: 24),
-                                label: Text(
-                                  _isSubmitting ? 'Wait...' : 'Capture Photo',
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green.shade800,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 56,
+                                child: ElevatedButton.icon(
+                                  onPressed: _isSubmitting ? null : _uploadImage,
+                                  icon: const Icon(Icons.cloud_upload),
+                                  label: Text(
+                                    _isSubmitting ? 'Uploading...' : 'Upload (${_capturedImages.length})',
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green.shade800,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                   ),
                                 ),
                               ),
-                            ),
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              Expanded(
+                                flex: 1,
+                                child: SizedBox(
+                                  height: 64,
+                                  child: OutlinedButton(
+                                    onPressed: _isSubmitting ? null : _nextPlant,
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.green.shade800,
+                                      side: BorderSide(color: Colors.green.shade800, width: 2),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                    ),
+                                    child: const Text('Next\nPlant', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 2,
+                                child: SizedBox(
+                                  height: 64,
+                                  child: ElevatedButton.icon(
+                                    onPressed: _isSubmitting ? null : _takePicture,
+                                    icon: const Icon(Icons.camera_alt, size: 24),
+                                    label: Text(
+                                      _isSubmitting ? 'Wait...' : 'Capture Photo',
+                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green.shade800,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
                   ),
+                ),
               ),
             ],
           ),

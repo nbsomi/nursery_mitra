@@ -160,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     }).toList(),
                     const Divider(),
-                    const Text('Processing Mode', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const Text('Review Mode', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     ...processingModes.map((m) {
                       return RadioListTile<String>(
                         title: Text(m),

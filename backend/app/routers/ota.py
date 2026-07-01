@@ -9,7 +9,7 @@ router = APIRouter(
 
 # Configuration for OTA
 # In a real production system, this could be read from the database or environment variable.
-TARGET_APP_VERSION = "1.0.15"
+TARGET_APP_VERSION = "1.0.16"
 APK_FILENAME = f"nurserymitra_{TARGET_APP_VERSION}.apk"
 RELEASES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "releases"))
 
