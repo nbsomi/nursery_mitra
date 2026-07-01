@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../core/constants/app_config.dart';
 import '../core/network/api_client.dart';
 import '../services/api_service.dart';
 import 'nursery_setup_screen.dart';
@@ -90,30 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
               title: const Text('Check for OTA Update'),
               onTap: () {
                 Navigator.pop(context); // Close drawer
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (context) {
-                    Future.delayed(const Duration(seconds: 2), () {
-                      Navigator.pop(context); // Close loading dialog
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('System is up to date. (v1.0.0)'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    });
-                    return const AlertDialog(
-                      content: Row(
-                        children: [
-                          CircularProgressIndicator(),
-                          SizedBox(width: 24),
-                          Text('Checking server for updates...'),
-                        ],
-                      ),
-                    );
-                  },
-                );
+                _checkForUpdates(context);
               },
             ),
             ListTile(
@@ -141,6 +124,88 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _checkForUpdates(BuildContext context) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 24),
+            Text('Checking server for updates...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      final localVersion = packageInfo.version;
+
+      final response = await http.get(Uri.parse('${AppConfig.baseUrl}/api/ota/latest'));
+      
+      if (context.mounted) Navigator.pop(context); // Close loading dialog
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final remoteVersion = data['version'] as String;
+        final downloadUrlPath = data['download_url'] as String;
+
+        // Simple string comparison for versions (e.g. "1.0.1" != "1.0.0")
+        if (remoteVersion != localVersion) {
+          if (!context.mounted) return;
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Update Available!'),
+              content: Text('A new version ($remoteVersion) is available. Would you like to download and install it now?'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                ElevatedButton(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    final fullUrl = '${AppConfig.baseUrl}$downloadUrlPath';
+                    final uri = Uri.parse(fullUrl);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    } else {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Could not open download link.')),
+                        );
+                      }
+                    }
+                  },
+                  child: const Text('Download'),
+                ),
+              ],
+            ),
+          );
+        } else {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('System is up to date. (v$localVersion)'), backgroundColor: Colors.green),
+            );
+          }
+        }
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to check for updates (Server error).'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to check for updates: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   Widget _buildActionGrid(BuildContext context) {
