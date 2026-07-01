@@ -14,9 +14,34 @@ router = APIRouter(
 
 class NurseryCreateRequest(BaseModel):
     name: str
+    farmer_name: Optional[str] = None
     latitude: float
     longitude: float
     phone: Optional[str] = None
+
+@router.get("/", status_code=status.HTTP_200_OK)
+def get_nurseries(db: Session = Depends(get_db)):
+    try:
+        nurseries = db.query(Nurseries).all()
+        return [
+            {
+                "nurseryId": nursery.NurseryID,
+                "name": nursery.Name,
+                "farmerName": nursery.FarmerName,
+                "latitude": nursery.Latitude,
+                "longitude": nursery.Longitude,
+                "address": nursery.Address,
+                "phone": nursery.Phone,
+                "firstSeenDate": nursery.FirstSeenDate.isoformat() if nursery.FirstSeenDate else None,
+                "lastVerifiedDate": nursery.LastVerifiedDate.isoformat() if nursery.LastVerifiedDate else None
+            }
+            for nursery in nurseries
+        ]
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch nurseries: {str(e)}"
+        )
 
 @router.post("/create-manual", status_code=status.HTTP_201_CREATED)
 def create_manual_nursery(nursery_req: NurseryCreateRequest, db: Session = Depends(get_db)):
@@ -25,6 +50,7 @@ def create_manual_nursery(nursery_req: NurseryCreateRequest, db: Session = Depen
         nursery = Nurseries(
             NurseryID=new_id,
             Name=nursery_req.name,
+            FarmerName=nursery_req.farmer_name,
             Latitude=nursery_req.latitude,
             Longitude=nursery_req.longitude,
             Phone=nursery_req.phone
@@ -36,6 +62,7 @@ def create_manual_nursery(nursery_req: NurseryCreateRequest, db: Session = Depen
         return {
             "nurseryId": nursery.NurseryID,
             "name": nursery.Name,
+            "farmerName": nursery.FarmerName,
             "latitude": nursery.Latitude,
             "longitude": nursery.Longitude,
             "address": nursery.Address,
@@ -70,6 +97,7 @@ async def upload_signboard(file: UploadFile = File(...), db: Session = Depends(g
         nursery = Nurseries(
             NurseryID=nursery_id,
             Name=f"Mock Nursery Profile {nursery_id[:6]}",
+            FarmerName=None,
             Latitude=0.0,
             Longitude=0.0,
             Address="Signboard Image Stored, Awaiting AI Extraction"
@@ -81,6 +109,7 @@ async def upload_signboard(file: UploadFile = File(...), db: Session = Depends(g
         return {
             "nurseryId": nursery.NurseryID,
             "name": nursery.Name,
+            "farmerName": nursery.FarmerName,
             "latitude": nursery.Latitude,
             "longitude": nursery.Longitude,
             "address": nursery.Address,

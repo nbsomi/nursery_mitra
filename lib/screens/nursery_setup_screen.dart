@@ -5,6 +5,8 @@ import 'package:camera/camera.dart';
 
 import '../core/network/api_client.dart';
 import '../services/api_service.dart';
+import '../models/nursery_model.dart';
+import 'plant_capture_screen.dart';
 
 class NurserySetupScreen extends StatefulWidget {
   const NurserySetupScreen({Key? key}) : super(key: key);
@@ -23,15 +25,31 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
 
   // Form State
   final TextEditingController _nameController = TextEditingController();
-  bool _isMethodA = true; // true for Signboard OCR, false for Manual Tag
+  final TextEditingController _farmerNameController = TextEditingController();
+  int _selectedMethod = 0; // 0: Auto, 1: Manual, 2: Existing
   bool _isLoading = false;
+  Future<List<NurseryModel>>? _nurseriesFuture;
+  NurseryModel? _selectedNursery;
 
   @override
   void initState() {
     super.initState();
     _apiService = ApiService(ApiClient());
     _nameController.addListener(_onFormChanged);
+    _farmerNameController.addListener(_onFormChanged);
     _checkPermissionsAndStartLocation();
+    _nurseriesFuture = _apiService.fetchNurseries();
+    _nurseriesFuture!.then((nurseries) {
+      if (mounted && _currentPosition != null) {
+        final tenAcres = 113.5;
+        final hasNearby = nurseries.any((n) => Geolocator.distanceBetween(
+              _currentPosition!.latitude, _currentPosition!.longitude,
+              n.latitude, n.longitude) <= tenAcres);
+        setState(() {
+          _selectedMethod = hasNearby ? 2 : 0;
+        });
+      }
+    });
   }
 
   void _onFormChanged() {
@@ -82,6 +100,7 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
   void dispose() {
     _positionStream?.cancel();
     _nameController.dispose();
+    _farmerNameController.dispose();
     super.dispose();
   }
 
@@ -102,7 +121,69 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
     );
   }
 
+  Future<bool> _shouldProceedWithCreation() async {
+    if (_currentPosition == null) return true; // Can't check without GPS
+
+    List<NurseryModel> nurseries = [];
+    try {
+      nurseries = await (_nurseriesFuture ?? Future.value([]));
+    } catch (e) {
+      // If fetching fails, proceed anyway
+      return true;
+    }
+
+    final double tenAcresRadiusMeters = 113.5;
+    final nearbyNurseries = nurseries.where((n) {
+      final distance = Geolocator.distanceBetween(
+        _currentPosition!.latitude,
+        _currentPosition!.longitude,
+        n.latitude,
+        n.longitude,
+      );
+      return distance <= tenAcresRadiusMeters;
+    }).toList();
+
+    if (nearbyNurseries.isEmpty) return true;
+
+    bool proceed = false;
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Similar Nursery Nearby'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('We found existing nurseries within 10 acres. Are you sure you want to create a new one instead of using an existing one?'),
+            const SizedBox(height: 12),
+            ...nearbyNurseries.map((n) => Text('• ${n.name}', style: const TextStyle(fontWeight: FontWeight.bold))),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              proceed = false;
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              proceed = true;
+            },
+            child: const Text('Create Anyway'),
+          ),
+        ],
+      ),
+    );
+
+    return proceed;
+  }
+
   Future<void> _captureSignboard() async {
+    if (!await _shouldProceedWithCreation()) return;
+
     List<CameraDescription> cameras = [];
     try {
       cameras = await availableCameras();
@@ -142,7 +223,15 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Nursery Profile Created: ${nursery.name}')),
         );
-        Navigator.pop(context); // Advance workflow upon completion
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PlantCaptureScreen(
+              nursery: nursery,
+              visitId: DateTime.now().millisecondsSinceEpoch.toString(),
+            ),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -159,6 +248,7 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
 
   Future<void> _submitManualEntry() async {
     if (_currentPosition == null) return;
+    if (!await _shouldProceedWithCreation()) return;
 
     setState(() {
       _isLoading = true;
@@ -167,6 +257,7 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
     try {
       final nursery = await _apiService.submitGeoTaggedNursery(
         _nameController.text.trim(),
+        _farmerNameController.text.trim().isNotEmpty ? _farmerNameController.text.trim() : null,
         _currentPosition!.latitude,
         _currentPosition!.longitude,
       );
@@ -174,7 +265,15 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Manual Nursery Created: ${nursery.name}')),
         );
-        Navigator.pop(context); // Advance workflow upon completion
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PlantCaptureScreen(
+              nursery: nursery,
+              visitId: DateTime.now().millisecondsSinceEpoch.toString(),
+            ),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -216,7 +315,9 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
                     children: [
                       _buildMethodToggle(),
                       const SizedBox(height: 24),
-                      if (_isMethodA) _buildMethodAUI() else _buildMethodBUI(),
+                      if (_selectedMethod == 0) _buildMethodAUI(),
+                      if (_selectedMethod == 1) _buildMethodBUI(),
+                      if (_selectedMethod == 2) _buildMethodCUI(),
                     ],
                   ),
                 ),
@@ -298,23 +399,28 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
   }
 
   Widget _buildMethodToggle() {
-    return SegmentedButton<bool>(
+    return SegmentedButton<int>(
       segments: const [
         ButtonSegment(
-          value: true,
-          label: Text('Signboard OCR (Auto)'),
+          value: 0,
+          label: Text('Auto'),
           icon: Icon(Icons.camera_alt),
         ),
         ButtonSegment(
-          value: false,
-          label: Text('Manual Tag (Backup)'),
+          value: 1,
+          label: Text('Manual'),
           icon: Icon(Icons.edit_location_alt),
         ),
+        ButtonSegment(
+          value: 2,
+          label: Text('Existing'),
+          icon: Icon(Icons.list),
+        ),
       ],
-      selected: {_isMethodA},
-      onSelectionChanged: (Set<bool> newSelection) {
+      selected: {_selectedMethod},
+      onSelectionChanged: (Set<int> newSelection) {
         setState(() {
-          _isMethodA = newSelection.first;
+          _selectedMethod = newSelection.first;
         });
       },
     );
@@ -387,6 +493,15 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
                 prefixIcon: const Icon(Icons.park),
               ),
             ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _farmerNameController,
+              decoration: InputDecoration(
+                labelText: 'Farmer Name (Optional)',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                prefixIcon: const Icon(Icons.person),
+              ),
+            ),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
@@ -395,6 +510,120 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
                 onPressed: isValid ? _submitManualEntry : null,
                 icon: const Icon(Icons.save),
                 label: const Text('Geo-Tag & Save Nursery', style: TextStyle(fontSize: 16)),
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMethodCUI() {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Select Existing Nursery',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Choose an already registered nursery from the database to continue your field visit.',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            ),
+            const SizedBox(height: 24),
+            FutureBuilder<List<NurseryModel>>(
+              future: _nurseriesFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Text('Error loading nurseries: ${snapshot.error}', style: const TextStyle(color: Colors.red));
+                }
+                final allNurseries = snapshot.data ?? [];
+                
+                // 10 acres is ~40,468.6 square meters. 
+                // A circle with this area has a radius of ~113.5 meters.
+                final double tenAcresRadiusMeters = 113.5;
+                
+                final nurseries = _currentPosition != null 
+                    ? allNurseries.where((n) {
+                        final distance = Geolocator.distanceBetween(
+                          _currentPosition!.latitude,
+                          _currentPosition!.longitude,
+                          n.latitude,
+                          n.longitude,
+                        );
+                        return distance <= tenAcresRadiusMeters;
+                      }).toList()
+                    : <NurseryModel>[]; // Wait for GPS to filter
+
+                if (_currentPosition == null) {
+                  return const Text('Awaiting GPS fix to locate nearby nurseries...', style: TextStyle(color: Colors.orangeAccent));
+                }
+                
+                if (nurseries.isEmpty) {
+                  return const Text('No nurseries found within 10 acres of your current location.');
+                }
+                
+                // Ensure the selected nursery is still in the filtered list, otherwise reset it
+                if (_selectedNursery != null && !nurseries.contains(_selectedNursery)) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _selectedNursery = null);
+                  });
+                }
+
+                return DropdownButtonFormField<NurseryModel>(
+                  decoration: InputDecoration(
+                    labelText: 'Nursery',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    prefixIcon: const Icon(Icons.park),
+                  ),
+                  value: _selectedNursery,
+                  items: nurseries.map((n) {
+                    return DropdownMenuItem<NurseryModel>(
+                      value: n,
+                      child: Text(n.name),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedNursery = val;
+                    });
+                  },
+                );
+              },
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton.icon(
+                onPressed: _selectedNursery != null ? () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Selected Nursery: ${_selectedNursery!.name}')),
+                  );
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PlantCaptureScreen(
+                        nursery: _selectedNursery!,
+                        visitId: DateTime.now().millisecondsSinceEpoch.toString(),
+                      ),
+                    ),
+                  );
+                } : null,
+                icon: const Icon(Icons.check),
+                label: const Text('Confirm Selection', style: TextStyle(fontSize: 16)),
                 style: ElevatedButton.styleFrom(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),

@@ -30,6 +30,20 @@ class ApiService {
     }
   }
 
+  Future<List<NurseryModel>> fetchNurseries() async {
+    try {
+      final response = await _apiClient.get(_buildUri(ApiEndpoints.listNurseries));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.map((json) => NurseryModel.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to fetch nurseries: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Network error during fetchNurseries: $e');
+    }
+  }
+
   Future<NurseryModel> submitNurserySignboard(String filePath) async {
     try {
       final uri = _buildUri(ApiEndpoints.uploadSignboard);
@@ -51,13 +65,15 @@ class ApiService {
     }
   }
 
-  Future<NurseryModel> submitGeoTaggedNursery(String name, double latitude, double longitude) async {
+  Future<NurseryModel> submitGeoTaggedNursery(
+      String name, String? farmerName, double lat, double lng) async {
     try {
       final uri = _buildUri(ApiEndpoints.createManualNursery);
       final body = jsonEncode({
         'name': name,
-        'latitude': latitude,
-        'longitude': longitude,
+        'farmer_name': farmerName,
+        'latitude': lat,
+        'longitude': lng,
       });
 
       final response = await _apiClient.post(uri, body: body);

@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 
+import 'package:geolocator/geolocator.dart';
+
 import '../core/constants/app_config.dart';
 import '../core/network/api_client.dart';
 import '../models/observation_payload.dart';
+import '../models/nursery_model.dart';
 import '../services/api_service.dart';
 import 'review_screen.dart';
 
 class PlantCaptureScreen extends StatefulWidget {
-  final String nurseryId;
+  final NurseryModel nursery;
   final String visitId;
 
   const PlantCaptureScreen({
     Key? key,
-    required this.nurseryId,
+    required this.nursery,
     required this.visitId,
   }) : super(key: key);
 
@@ -91,11 +94,66 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
     });
 
     try {
+      // SAFE CHECK: Geolocation
+      bool isOutOfRange = false;
+      try {
+        final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+        final distance = Geolocator.distanceBetween(
+          position.latitude,
+          position.longitude,
+          widget.nursery.latitude,
+          widget.nursery.longitude,
+        );
+        if (distance > 113.5) {
+          isOutOfRange = true;
+        }
+      } catch (e) {
+        debugPrint('Safe check GPS failed: $e');
+      }
+
+      if (isOutOfRange) {
+        if (mounted) {
+          setState(() {
+            _isSubmitting = false;
+          });
+          
+          bool proceed = false;
+          await showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Out of Range Warning'),
+              content: Text('You appear to be more than 10 acres away from ${widget.nursery.name}. Are you sure you want to add this plant to this nursery?'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    proceed = false;
+                  },
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    proceed = true;
+                  },
+                  child: const Text('Yes, Continue'),
+                ),
+              ],
+            ),
+          );
+          if (!proceed) return;
+          
+          setState(() {
+            _isSubmitting = true;
+          });
+        }
+      }
+
       final image = await _cameraController!.takePicture();
       
       final payload = ObservationPayload(
         visitId: widget.visitId,
-        nurseryId: widget.nurseryId,
+        nurseryId: widget.nursery.nurseryId,
         plantName: _plantNameController.text.trim(),
         plantHeight: _heightController.text.trim(),
         bagSize: _bagSizeController.text.trim(),
@@ -187,8 +245,43 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
       ),
       body: Stack(
         children: [
-          Column(
-            children: [
+          // Banner for Nursery details
+          Container(
+            color: Colors.green.shade50,
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '📍 ${widget.nursery.name}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      if (widget.nursery.farmerName.isNotEmpty)
+                        Text(
+                          'Farmer: ${widget.nursery.farmerName}',
+                          style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+                        ),
+                    ],
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.edit, size: 16),
+                  label: const Text('Change'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.green.shade800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Column(
+              children: [
               // Live Viewfinder (Upper Half)
               AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
@@ -294,6 +387,7 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
               ),
             ],
           ),
+        ),
           
           if (_isSubmitting)
             Container(

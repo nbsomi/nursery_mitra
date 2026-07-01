@@ -8,6 +8,7 @@ class Nurseries(Base):
 
     NurseryID = Column(String, primary_key=True, index=True)
     Name = Column(String, nullable=False)
+    FarmerName = Column(String, nullable=True)
     Latitude = Column(Float, nullable=False)
     Longitude = Column(Float, nullable=False)
     Address = Column(String, nullable=True)

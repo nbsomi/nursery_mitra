@@ -1,6 +1,7 @@
 class NurseryModel {
   final String nurseryId;
   final String name;
+  final String farmerName;
   final double latitude;
   final double longitude;
   final String address;
@@ -11,6 +12,7 @@ class NurseryModel {
   NurseryModel({
     required this.nurseryId,
     required this.name,
+    required this.farmerName,
     required this.latitude,
     required this.longitude,
     required this.address,
@@ -23,6 +25,7 @@ class NurseryModel {
     return NurseryModel(
       nurseryId: json['nurseryId'] as String? ?? '',
       name: json['name'] as String? ?? '',
+      farmerName: json['farmerName'] as String? ?? '',
       latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
       address: json['address'] as String? ?? '',
@@ -36,6 +39,7 @@ class NurseryModel {
     return {
       'nurseryId': nurseryId,
       'name': name,
+      'farmerName': farmerName,
       'latitude': latitude,
       'longitude': longitude,
       'address': address,
