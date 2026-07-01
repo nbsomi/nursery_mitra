@@ -27,7 +27,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
 
   // Tab 3 State
   final TextEditingController _plantNameSizeController = TextEditingController();
-  final TextEditingController _sizeController = TextEditingController();
+  final TextEditingController _bagSizeController = TextEditingController();
   List<Map<String, dynamic>>? _plantSizeSearchResults;
   bool _isSearchingPlantSize = false;
 
@@ -84,19 +84,14 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
     }
   }
 
-  Future<void> _searchByPlantAndSize() async {
-    if (_plantNameSizeController.text.trim().isEmpty || _sizeController.text.trim().isEmpty) return;
-    final size = double.tryParse(_sizeController.text.trim());
-    if (size == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid numeric size.')));
-      return;
-    }
-
+  Future<void> _searchByPlantAndBagSize() async {
+    if (_plantNameSizeController.text.trim().isEmpty || _bagSizeController.text.trim().isEmpty) return;
+    
     setState(() {
       _isSearchingPlantSize = true;
       _plantSizeSearchResults = null;
     });
-    final results = await _apiService.searchByPlantAndSize(_plantNameSizeController.text.trim(), size);
+    final results = await _apiService.searchByPlantAndBagSize(_plantNameSizeController.text.trim(), _bagSizeController.text.trim());
     if (mounted) {
       setState(() {
         _plantSizeSearchResults = results;
@@ -120,7 +115,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
           tabs: const [
             Tab(text: 'By Nursery', icon: Icon(Icons.park)),
             Tab(text: 'By Plant', icon: Icon(Icons.eco)),
-            Tab(text: 'Plant & Size', icon: Icon(Icons.straighten)),
+            Tab(text: 'Plant & Bag', icon: Icon(Icons.shopping_bag)),
           ],
         ),
       ),
@@ -129,7 +124,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
         children: [
           _buildNurseryTab(),
           _buildPlantTab(),
-          _buildPlantSizeTab(),
+          _buildPlantBagSizeTab(),
         ],
       ),
     );
@@ -249,7 +244,7 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildPlantSizeTab() {
+  Widget _buildPlantBagSizeTab() {
     return Column(
       children: [
         Padding(
@@ -270,18 +265,17 @@ class _SearchScreenState extends State<SearchScreen> with SingleTickerProviderSt
               Expanded(
                 flex: 1,
                 child: TextField(
-                  controller: _sizeController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  controller: _bagSizeController,
                   decoration: const InputDecoration(
-                    labelText: 'Size (Metric)',
+                    labelText: 'Bag Size',
                     border: OutlineInputBorder(),
                   ),
-                  onSubmitted: (_) => _searchByPlantAndSize(),
+                  onSubmitted: (_) => _searchByPlantAndBagSize(),
                 ),
               ),
               const SizedBox(width: 12),
               ElevatedButton(
-                onPressed: _searchByPlantAndSize,
+                onPressed: _searchByPlantAndBagSize,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.indigo.shade700,
                   foregroundColor: Colors.white,

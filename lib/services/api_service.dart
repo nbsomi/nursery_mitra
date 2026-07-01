@@ -116,13 +116,12 @@ class ApiService {
     }
   }
 
-  Future<void> confirmStagedData(String reviewId, String plantName, String size, String bagSize) async {
+  Future<void> confirmStagedData(String reviewId, String plantName, String bagSize) async {
     try {
       final uri = _buildUri(ApiEndpoints.confirmReview);
       final body = jsonEncode({
         'reviewId': reviewId,
         'plantName': plantName,
-        'size': size,
         'bagSize': bagSize,
       });
 
@@ -182,8 +181,8 @@ class ApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> searchByPlantAndSize(String name, double size) async {
-    final url = _buildUri('/search/plant-size?name=${Uri.encodeComponent(name)}&size=$size');
+  Future<List<Map<String, dynamic>>> searchByPlantAndBagSize(String name, String bagSize) async {
+    final url = _buildUri('/search/plant-bag?name=${Uri.encodeComponent(name)}&bag_size=${Uri.encodeComponent(bagSize)}');
     try {
       final response = await _apiClient.get(url);
       if (response.statusCode == 200) {
@@ -192,7 +191,7 @@ class ApiService {
       }
       return [];
     } catch (e) {
-      debugPrint('Error searching by plant and size: $e');
+      debugPrint('Error searching by plant and bag size: $e');
       return [];
     }
   }

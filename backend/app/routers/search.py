@@ -60,20 +60,20 @@ def search_by_plant(name: str = Query(..., description="CommonName to search for
         
     return list(nursery_map.values())
 
-@router.get("/plant-size")
-def search_by_plant_and_size(
+@router.get("/plant-bag")
+def search_by_plant_and_bag_size(
     name: str = Query(..., description="CommonName to search for"),
-    size: float = Query(..., description="SizingMetric (float) to exactly match"),
+    bag_size: str = Query(..., description="BagSize to exactly match"),
     db: Session = Depends(get_db)
 ):
     """
-    Returns all nurseries that carry a specific plant at a specific size (SizingMetric).
+    Returns all nurseries that carry a specific plant at a specific bag size.
     """
     results = (
         db.query(Nurseries, MasterInventory)
         .join(MasterInventory, Nurseries.NurseryID == MasterInventory.NurseryID)
         .filter(MasterInventory.CommonName.ilike(f"%{name}%"))
-        .filter(MasterInventory.SizingMetric == size)
+        .filter(MasterInventory.BagSize == bag_size)
         .all()
     )
     
@@ -85,7 +85,6 @@ def search_by_plant_and_size(
                 "Name": nursery.Name,
                 "FarmerName": nursery.FarmerName,
                 "MatchedPlant": inventory.CommonName,
-                "MatchedSize": inventory.SizingMetric,
                 "MatchedBagSize": inventory.BagSize
             }
             

@@ -16,7 +16,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
   late final ApiService _apiService;
   
   late TextEditingController _plantNameController;
-  late TextEditingController _sizeController;
   late TextEditingController _bagSizeController;
 
   final _formKey = GlobalKey<FormState>();
@@ -28,14 +27,12 @@ class _ReviewScreenState extends State<ReviewScreen> {
     _apiService = ApiService(ApiClient());
     
     _plantNameController = TextEditingController(text: widget.reviewItem.extractedPlantName);
-    _sizeController = TextEditingController(text: widget.reviewItem.extractedSize);
     _bagSizeController = TextEditingController(text: widget.reviewItem.extractedBagSize);
   }
 
   @override
   void dispose() {
     _plantNameController.dispose();
-    _sizeController.dispose();
     _bagSizeController.dispose();
     super.dispose();
   }
@@ -53,7 +50,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
       await _apiService.confirmStagedData(
         widget.reviewItem.reviewId,
         _plantNameController.text.trim(),
-        _sizeController.text.trim(),
         _bagSizeController.text.trim(),
       );
 
@@ -128,13 +124,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
                     label: 'Predicted Plant Name',
                     icon: Icons.local_florist,
                     validatorMessage: 'Plant name cannot be empty',
-                  ),
-                  const SizedBox(height: 16),
-                  _buildValidatedTextField(
-                    controller: _sizeController,
-                    label: 'Predicted Size Dimensions',
-                    icon: Icons.height,
-                    validatorMessage: 'Size dimension cannot be empty',
                   ),
                   const SizedBox(height: 16),
                   _buildValidatedTextField(

@@ -2,6 +2,7 @@ import os
 import uuid
 import json
 from typing import Optional
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query, Header
 from sqlalchemy.orm import Session
 
@@ -68,7 +69,7 @@ async def upload_observation(
         save_directory = "backend/images/plants"
         os.makedirs(save_directory, exist_ok=True)
         
-        file_id = str(uuid.uuid4())
+        file_id = plant_name if plant_name else str(uuid.uuid4())
         file_extension = os.path.splitext(file.filename)[1] if file.filename else ".jpg"
         file_path = os.path.join(save_directory, f"{file_id}{file_extension}")
         
@@ -174,16 +175,46 @@ def get_pending_reviews(
     for r in reviews:
         image_url = ""
         if r.ImagePath:
-            image_url = "/" + r.ImagePath.split("backend/", 1)[-1] if "backend/" in r.ImagePath else r.ImagePath
+            image_url = "/api/" + r.ImagePath.split("backend/", 1)[-1] if "backend/" in r.ImagePath else r.ImagePath
             
         results.append({
             "reviewId": r.ReviewID,
             "nurseryId": r.NurseryID,
             "extractedPlantName": r.ExtractedName or "",
-            "extractedSize": r.ExtractedSize or "",
             "extractedBagSize": r.ExtractedBagSize or "",
             "confidence": r.Confidence or 0.0,
             "imageUrl": image_url
         })
         
     return {"reviews": results}
+
+class ConfirmReviewRequest(BaseModel):
+    reviewId: str
+    plantName: str
+    bagSize: str
+
+@router.post("/confirm-review")
+def confirm_review(
+    request: ConfirmReviewRequest,
+    db: Session = Depends(get_db)
+):
+    review = db.query(PendingReview).filter(PendingReview.ReviewID == request.reviewId).first()
+    if not review:
+        raise HTTPException(status_code=404, detail="Review not found")
+    
+    review.Status = "Committed"
+    
+    sizing_metric = 0.0
+
+    plant_id = str(uuid.uuid4())
+    inventory = MasterInventory(
+        PlantID=plant_id,
+        NurseryID=review.NurseryID,
+        CommonName=request.plantName,
+        SizingMetric=sizing_metric,
+        BagSize=request.bagSize
+    )
+    db.add(inventory)
+    db.commit()
+    
+    return {"message": "Review confirmed successfully", "plant_id": plant_id}

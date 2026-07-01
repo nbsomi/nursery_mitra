@@ -1,5 +1,6 @@
 import os
 import asyncio
+import subprocess
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -28,7 +29,7 @@ app.add_middleware(
 )
 
 # Expose static images
-app.mount("/images", StaticFiles(directory="backend/images"), name="images")
+app.mount("/api/images", StaticFiles(directory="backend/images"), name="images")
 
 @app.on_event("startup")
 async def startup_event():
@@ -41,6 +42,28 @@ async def startup_event():
     # Start the FIFO background ML worker
     from app.core.worker import process_queue
     asyncio.create_task(process_queue())
+
+    # Start Cloudflare Tunnel automatically
+    global cloudflared_process
+    try:
+        os.makedirs("backend/logs", exist_ok=True)
+        # Using line-buffered output
+        log_file = open("backend/logs/cloudflared.log", "a", buffering=1)
+        cloudflared_process = subprocess.Popen(
+            ["cloudflared", "tunnel", "run", "--url", "http://localhost:8000", "nursery-mitra-backend"],
+            stdout=log_file,
+            stderr=subprocess.STDOUT
+        )
+        print("Cloudflare tunnel background process started via FastAPI.")
+    except Exception as e:
+        print(f"Failed to start Cloudflare tunnel: {e}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    global cloudflared_process
+    if 'cloudflared_process' in globals() and cloudflared_process:
+        cloudflared_process.terminate()
+        print("Cloudflare tunnel background process terminated.")
 
 from fastapi.responses import RedirectResponse
 

@@ -1,20 +1,18 @@
 import os
 import torch
 from PIL import Image
-from transformers import ViTImageProcessor, ViTForImageClassification
+from transformers import AutoImageProcessor, AutoModelForImageClassification
 
 class MLService:
     def __init__(self):
-        # We use a standard Vision Transformer. 
-        # In a production scenario, we would replace this with a model specifically fine-tuned on plants.
-        self.model_name = 'google/vit-base-patch16-224'
+        # Using a model specifically fine-tuned on plant species that is open and ungated
+        self.model_name = 'umutbozdag/plant-identity'
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print(f"Initializing ML Service on {self.device}...")
         
         try:
-            # We use ViTImageProcessor instead of the deprecated ViTFeatureExtractor
-            self.processor = ViTImageProcessor.from_pretrained(self.model_name)
-            self.model = ViTForImageClassification.from_pretrained(self.model_name).to(self.device)
+            self.processor = AutoImageProcessor.from_pretrained(self.model_name)
+            self.model = AutoModelForImageClassification.from_pretrained(self.model_name).to(self.device)
             print("ML Models loaded successfully.")
         except Exception as e:
             print(f"Error loading model: {e}")
