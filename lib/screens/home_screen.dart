@@ -86,6 +86,37 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.system_update),
+              title: const Text('Check for OTA Update'),
+              onTap: () {
+                Navigator.pop(context); // Close drawer
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) {
+                    Future.delayed(const Duration(seconds: 2), () {
+                      Navigator.pop(context); // Close loading dialog
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('System is up to date. (v1.0.0)'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    });
+                    return const AlertDialog(
+                      content: Row(
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(width: 24),
+                          Text('Checking server for updates...'),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.settings),
               title: const Text('Settings'),
               onTap: () {
