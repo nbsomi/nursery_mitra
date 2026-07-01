@@ -11,7 +11,7 @@ router = APIRouter(
 # In a real production system, this could be read from the database or environment variable.
 TARGET_APP_VERSION = "1.0.2"
 APK_FILENAME = "app-release.apk"
-RELEASES_DIR = "backend/releases"
+RELEASES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "releases"))
 
 @router.get("/latest", status_code=status.HTTP_200_OK)
 def check_latest_version():
