@@ -31,7 +31,7 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
   final TextEditingController _farmerNameController = TextEditingController();
   final TextEditingController _phone1Controller = TextEditingController();
   final TextEditingController _phone2Controller = TextEditingController();
-  int _selectedMethod = 0; // 0: Auto, 1: Manual, 2: Existing
+  int _selectedMethod = 2; // 0: Auto, 1: Manual, 2: Existing
   bool _isLoading = false;
   Future<List<NurseryModel>>? _nurseriesFuture;
   NurseryModel? _selectedNursery;
@@ -48,13 +48,7 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
     _nurseriesFuture = _apiService.fetchNurseries();
     _nurseriesFuture!.then((nurseries) {
       if (mounted && _currentPosition != null) {
-        final tenAcres = 113.5;
-        final hasNearby = nurseries.any((n) => Geolocator.distanceBetween(
-              _currentPosition!.latitude, _currentPosition!.longitude,
-              n.latitude, n.longitude) <= tenAcres);
-        setState(() {
-          _selectedMethod = hasNearby ? 2 : 0;
-        });
+        // Telemetry available, keeping default to Existing (2)
       }
     });
   }

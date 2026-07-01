@@ -13,24 +13,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late final ApiService _apiService;
-  late Future<Map<String, dynamic>> _telemetryFuture;
+  // Session State
+  int _sessionNurseriesAdded = 0;
+  int _sessionPlantsAdded = 0;
 
   @override
   void initState() {
     super.initState();
     _apiService = ApiService(ApiClient());
-    _loadTelemetry();
-  }
-
-  void _loadTelemetry() {
-    setState(() {
-      _telemetryFuture = _apiService.fetchStatsTelemetry();
-    });
-  }
-
-  Future<void> _handleRefresh() async {
-    _loadTelemetry();
-    await _telemetryFuture.catchError((_) {}); // Prevent error from breaking refresh indicator animation
   }
 
   @override
@@ -41,128 +31,84 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: true,
         elevation: 2,
       ),
-      body: RefreshIndicator(
-        onRefresh: _handleRefresh,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildTelemetryCard(),
-              const SizedBox(height: 24),
-              _buildActionGrid(context),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTelemetryCard() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: FutureBuilder<Map<String, dynamic>>(
-          future: _telemetryFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const SizedBox(
-                height: 140,
-                child: Center(
-                  child: CircularProgressIndicator(),
-                ),
-              );
-            }
-
-            if (snapshot.hasError) {
-              return SizedBox(
-                height: 140,
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.cloud_off, color: Colors.red, size: 36),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Unable to connect to tunnel.\nPull down to retry.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.bold),
-                      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Colors.green.shade700,
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Icon(Icons.spa, color: Colors.white, size: 48),
+                  SizedBox(height: 12),
+                  Text(
+                    'Nursery Mitra',
+                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.analytics),
+              title: const Text('Session Stats'),
+              onTap: () {
+                Navigator.pop(context); // Close drawer
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Current Session Stats'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ListTile(
+                          leading: const Icon(Icons.park, color: Colors.green),
+                          title: const Text('Nurseries Added'),
+                          trailing: Text('$_sessionNurseriesAdded', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.eco, color: Colors.teal),
+                          title: const Text('Plants Captured'),
+                          trailing: Text('$_sessionPlantsAdded', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                        ),
+                        const Divider(),
+                        const Text('Stats are only tracked for this active session.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))
                     ],
                   ),
-                ),
-              );
-            }
-
-            final data = snapshot.data ?? {};
-            final int totalNurseries = data['totalNurseries'] ?? 0;
-            final int totalPlants = data['totalPlants'] ?? 0;
-            final String lastSync = data['lastSyncTimestamp'] ?? 'Never';
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.analytics, color: Colors.blueAccent),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Live Telemetry',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                  ],
-                ),
-                const Divider(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildStatItem('Nurseries', totalNurseries.toString(), Icons.park),
-                    _buildStatItem('Tracked Plants', totalPlants.toString(), Icons.eco),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Center(
-                  child: Text(
-                    'Last Server Sync: $lastSync',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey.shade600,
-                        ),
-                  ),
-                ),
-              ],
-            );
-          },
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text('Settings'),
+              onTap: () {
+                Navigator.pop(context); // Close drawer
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Opening Settings...')),
+                );
+              },
+            ),
+          ],
         ),
       ),
-    );
-  }
-
-  Widget _buildStatItem(String label, String value, IconData icon) {
-    return Column(
-      children: [
-        Icon(icon, size: 36, color: Colors.green.shade600),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-          ),
+      body: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 24),
+            _buildActionGrid(context),
+          ],
         ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey.shade700,
-          ),
-        ),
-      ],
+      ),
     );
   }
 
