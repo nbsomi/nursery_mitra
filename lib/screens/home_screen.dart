@@ -9,6 +9,7 @@ import '../core/constants/app_config.dart';
 import '../core/network/api_client.dart';
 import '../services/api_service.dart';
 import 'nursery_setup_screen.dart';
+import 'search_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -232,13 +233,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         _buildActionTile(
           context,
-          title: 'System\nOperational Settings',
-          icon: Icons.settings_applications,
-          color: Colors.blueGrey,
+          title: 'Database Search',
+          icon: Icons.manage_search,
+          color: Colors.indigo,
           onTap: () {
-            // Future management configurations routing
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Opening Operational Settings...')),
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SearchScreen()),
             );
           },
         ),

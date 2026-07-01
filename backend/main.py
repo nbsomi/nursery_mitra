@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import engine, Base
-from app.routers import telemetry, nursery, observations, ota
+from app.routers import telemetry, nursery, observations, ota, search
 
 # Ensure the physical database directory exists prior to metadata creation
 os.makedirs("backend/database", exist_ok=True)
@@ -38,3 +38,4 @@ app.include_router(telemetry.router)
 app.include_router(nursery.router)
 app.include_router(observations.router)
 app.include_router(ota.router)
+app.include_router(search.router)

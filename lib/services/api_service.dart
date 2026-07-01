@@ -134,4 +134,49 @@ class ApiService {
       throw Exception('Network error during confirmStagedData: $e');
     }
   }
+
+  Future<List<Map<String, dynamic>>> searchPlantsByNursery(String nurseryId) async {
+    final url = _buildUri('/api/search/nursery/$nurseryId/plants');
+    try {
+      final response = await _apiClient.get(url);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.cast<Map<String, dynamic>>();
+      }
+      return [];
+    } catch (e) {
+      print('Error searching plants by nursery: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> searchByPlant(String name) async {
+    final url = _buildUri('/api/search/plants?name=${Uri.encodeComponent(name)}');
+    try {
+      final response = await _apiClient.get(url);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.cast<Map<String, dynamic>>();
+      }
+      return [];
+    } catch (e) {
+      print('Error searching by plant: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> searchByPlantAndSize(String name, double size) async {
+    final url = _buildUri('/api/search/plant-size?name=${Uri.encodeComponent(name)}&size=$size');
+    try {
+      final response = await _apiClient.get(url);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.cast<Map<String, dynamic>>();
+      }
+      return [];
+    } catch (e) {
+      print('Error searching by plant and size: $e');
+      return [];
+    }
+  }
 }
