@@ -12,6 +12,7 @@ import '../models/nursery_model.dart';
 import 'plant_capture_screen.dart';
 import 'package:latlong2/latlong.dart';
 import 'location_picker_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class NurserySetupScreen extends StatefulWidget {
   const NurserySetupScreen({super.key});
@@ -39,6 +40,7 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
   bool _isLoading = false;
   Future<List<NurseryModel>>? _nurseriesFuture;
   NurseryModel? _selectedNursery;
+  String _geocodingProvider = 'Merged';
 
   @override
   void initState() {
@@ -54,6 +56,14 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
       if (mounted && _currentPosition != null) {
         // Telemetry available, keeping default to Existing (2)
       }
+    });
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _geocodingProvider = prefs.getString('geocodingProvider') ?? 'Merged';
     });
   }
 
@@ -165,12 +175,21 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
         }
       }
 
-      // Run all geocoding services simultaneously
-      await Future.wait([
-        fetchNominatim(),
-        fetchBigDataCloud(),
-        fetchNativeGeocoding(),
-      ]);
+      // Run geocoding service based on selection
+      if (_geocodingProvider == 'Nominatim') {
+        await fetchNominatim();
+      } else if (_geocodingProvider == 'BigDataCloud') {
+        await fetchBigDataCloud();
+      } else if (_geocodingProvider == 'Native Geocoding') {
+        await fetchNativeGeocoding();
+      } else {
+        // Default to running all simultaneously
+        await Future.wait([
+          fetchNominatim(),
+          fetchBigDataCloud(),
+          fetchNativeGeocoding(),
+        ]);
+      }
       
       // Helper function for phonetic similarity
       int levenshtein(String a, String b) {
@@ -460,12 +479,75 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
     return true;
   }
 
+  Future<void> _showSettingsDialog() async {
+    final List<String> providers = ['Merged', 'Nominatim', 'BigDataCloud', 'Native Geocoding'];
+    String tempProvider = _geocodingProvider;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Select Geocoding Provider'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: providers.map((p) {
+                  return RadioListTile<String>(
+                    title: Text(p),
+                    value: p,
+                    groupValue: tempProvider,
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() {
+                          tempProvider = val;
+                        });
+                      }
+                    },
+                  );
+                }).toList(),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('geocodingProvider', tempProvider);
+                    setState(() {
+                      _geocodingProvider = tempProvider;
+                    });
+                    if (mounted) {
+                      Navigator.pop(context);
+                      if (_currentPosition != null) {
+                        _updateAddress(_currentPosition!.latitude, _currentPosition!.longitude);
+                      }
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nursery Setup Environment'),
         elevation: 2,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: _showSettingsDialog,
+          ),
+        ],
       ),
       body: Stack(
         children: [
