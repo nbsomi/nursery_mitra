@@ -109,12 +109,19 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
       final placemarks = await placemarkFromCoordinates(lat, lng);
       if (placemarks.isNotEmpty) {
         final place = placemarks.first;
-        final address = [place.street, place.subLocality, place.locality]
-            .where((s) => s != null && s.isNotEmpty && !s.contains('+'))
-            .join(', ');
+        final addressParts = [
+          place.name,
+          place.street,
+          place.thoroughfare,
+          place.subLocality,
+          place.locality,
+          place.subAdministrativeArea,
+        ].where((s) => s != null && s.isNotEmpty && !s.contains('+')).toSet().toList();
+        
+        final address = addressParts.join(', ');
         if (mounted) {
           setState(() {
-            _resolvedAddress = address;
+            _resolvedAddress = address.isEmpty ? 'Unknown Location' : address;
           });
         }
       }
@@ -604,6 +611,36 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
     );
   }
 
+  void _showAddMethodDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Add New Nursery'),
+          content: const Text('How would you like to add the new nursery?'),
+          actions: [
+            TextButton.icon(
+              icon: const Icon(Icons.camera_alt),
+              label: const Text('Auto OCR'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                setState(() => _selectedMethod = 0);
+              },
+            ),
+            TextButton.icon(
+              icon: const Icon(Icons.edit_location_alt),
+              label: const Text('Manual Entry'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                setState(() => _selectedMethod = 1);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildMethodCUI() {
     return Card(
       elevation: 4,
@@ -664,7 +701,7 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
                       const Text('No nurseries found within 10 acres of your current location.'),
                       const SizedBox(height: 8),
                       TextButton.icon(
-                        onPressed: () => setState(() => _selectedMethod = 1),
+                        onPressed: () => _showAddMethodDialog(context),
                         icon: const Icon(Icons.add),
                         label: const Text("Couldn't find the nursery? Add new."),
                       ),
@@ -702,7 +739,7 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
                     ),
                     const SizedBox(height: 8),
                     TextButton.icon(
-                      onPressed: () => setState(() => _selectedMethod = 1),
+                      onPressed: () => _showAddMethodDialog(context),
                       icon: const Icon(Icons.add),
                       label: const Text("Couldn't find the nursery? Add new."),
                     ),
