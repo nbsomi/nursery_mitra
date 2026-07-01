@@ -319,9 +319,11 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.all(16.0),
                 color: Colors.white,
-                child: _capturedImage != null
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: _capturedImage != null
                     ? Row(
                         children: [
                           Expanded(
@@ -401,6 +403,8 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
                           ),
                         ],
                       ),
+                    ),
+                  ),
               ),
             ],
           ),

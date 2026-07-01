@@ -125,10 +125,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _showSettingsDialog(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     String tempProvider = prefs.getString('geocodingProvider') ?? 'Merged';
-    String tempProcessingMode = prefs.getString('processingMode') ?? 'Batch Processing (Active)';
+    String tempProcessingMode = prefs.getString('processingMode') ?? 'Batch Review';
     
     final List<String> providers = ['Merged', 'Nominatim', 'BigDataCloud', 'Native Geocoding'];
-    final List<String> processingModes = ['Batch Processing (Active)', 'Real-time Processing (Future Use)'];
+    final List<String> processingModes = ['Batch Review', 'Real Time Review'];
 
     if (!context.mounted) return;
 
@@ -187,6 +187,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPressed: () async {
                     await prefs.setString('geocodingProvider', tempProvider);
                     await prefs.setString('processingMode', tempProcessingMode);
+                    
+                    if (tempProcessingMode == 'Batch Review') {
+                      AppConfig.processingTiming = ProcessingTiming.later;
+                    } else {
+                      AppConfig.processingTiming = ProcessingTiming.immediate;
+                    }
+                    
                     if (context.mounted) {
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
