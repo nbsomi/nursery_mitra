@@ -125,10 +125,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _showSettingsDialog(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     String tempProvider = prefs.getString('geocodingProvider') ?? 'Merged';
-    String tempProcessingMode = prefs.getString('processingMode') ?? 'Batch Review';
+    String tempProcessingMode = prefs.getString('processingMode') ?? 'Batch Processing';
+    String tempReviewMode = prefs.getString('reviewMode') ?? 'Batch Review';
     
     final List<String> providers = ['Merged', 'Nominatim', 'BigDataCloud', 'Native Geocoding'];
-    final List<String> processingModes = ['Batch Review', 'Real Time Review'];
+    final List<String> processingModes = ['Batch Processing', 'Real Time Processing'];
+    final List<String> reviewModes = ['Batch Review', 'Real Time Review'];
 
     if (!context.mounted) return;
 
@@ -160,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     }).toList(),
                     const Divider(),
-                    const Text('Review Mode', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const Text('Processing Mode', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     ...processingModes.map((m) {
                       return RadioListTile<String>(
                         title: Text(m),
@@ -170,6 +172,22 @@ class _HomeScreenState extends State<HomeScreen> {
                           if (val != null) {
                             setDialogState(() {
                               tempProcessingMode = val;
+                            });
+                          }
+                        },
+                      );
+                    }).toList(),
+                    const Divider(),
+                    const Text('Review Mode', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ...reviewModes.map((m) {
+                      return RadioListTile<String>(
+                        title: Text(m),
+                        value: m,
+                        groupValue: tempReviewMode,
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDialogState(() {
+                              tempReviewMode = val;
                             });
                           }
                         },
@@ -187,8 +205,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPressed: () async {
                     await prefs.setString('geocodingProvider', tempProvider);
                     await prefs.setString('processingMode', tempProcessingMode);
+                    await prefs.setString('reviewMode', tempReviewMode);
                     
-                    if (tempProcessingMode == 'Batch Review') {
+                    if (tempReviewMode == 'Batch Review') {
                       AppConfig.processingTiming = ProcessingTiming.later;
                     } else {
                       AppConfig.processingTiming = ProcessingTiming.immediate;
