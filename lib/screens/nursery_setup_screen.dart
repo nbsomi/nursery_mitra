@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:camera/camera.dart';
@@ -106,27 +108,87 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
 
   Future<void> _updateAddress(double lat, double lng) async {
     try {
-      final placemarks = await placemarkFromCoordinates(lat, lng);
-      if (placemarks.isNotEmpty) {
-        final place = placemarks.first;
-        final addressParts = [
-          place.name,
-          place.street,
-          place.thoroughfare,
-          place.subLocality,
-          place.locality,
-          place.subAdministrativeArea,
-        ].where((s) => s != null && s.isNotEmpty && !s.contains('+')).toSet().toList();
-        
-        final address = addressParts.join(', ');
-        if (mounted) {
-          setState(() {
-            _resolvedAddress = address.isEmpty ? 'Unknown Location' : address;
-          });
+      final List<String> addressParts = [];
+
+      Future<void> fetchNominatim() async {
+        try {
+          final url = Uri.parse('https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&zoom=18&addressdetails=1');
+          final response = await http.get(url, headers: {'User-Agent': 'NurseryMitra/1.0'}).timeout(const Duration(seconds: 4));
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            if (data['address'] != null) {
+              final addr = data['address'];
+              if (addr['village'] != null) addressParts.add(addr['village']);
+              if (addr['hamlet'] != null) addressParts.add(addr['hamlet']);
+              if (addr['suburb'] != null) addressParts.add(addr['suburb']);
+              if (addr['neighbourhood'] != null) addressParts.add(addr['neighbourhood']);
+              if (addr['road'] != null) addressParts.add(addr['road']);
+              if (addr['city'] != null) addressParts.add(addr['city']);
+              if (addr['county'] != null) addressParts.add(addr['county']);
+              if (addr['state'] != null) addressParts.add(addr['state']);
+            }
+          }
+        } catch (e) {
+          debugPrint('Nominatim error: $e');
         }
       }
+
+      Future<void> fetchBigDataCloud() async {
+        try {
+          final url = Uri.parse('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=$lat&longitude=$lng&localityLanguage=en');
+          final response = await http.get(url).timeout(const Duration(seconds: 4));
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            if (data['locality'] != null) addressParts.add(data['locality']);
+            if (data['city'] != null) addressParts.add(data['city']);
+            if (data['principalSubdivision'] != null) addressParts.add(data['principalSubdivision']);
+          }
+        } catch (e) {
+          debugPrint('BigDataCloud error: $e');
+        }
+      }
+
+      Future<void> fetchNativeGeocoding() async {
+        try {
+          final placemarks = await placemarkFromCoordinates(lat, lng).timeout(const Duration(seconds: 4));
+          if (placemarks.isNotEmpty) {
+            final place = placemarks.first;
+            addressParts.addAll([
+              place.name,
+              place.street,
+              place.thoroughfare,
+              place.subLocality,
+              place.locality,
+              place.subAdministrativeArea,
+              place.administrativeArea,
+            ].where((s) => s != null && s.isNotEmpty && !s.contains('+')).cast<String>());
+          }
+        } catch (e) {
+          debugPrint('Native Geocoding error: $e');
+        }
+      }
+
+      // Run all geocoding services simultaneously
+      await Future.wait([
+        fetchNominatim(),
+        fetchBigDataCloud(),
+        fetchNativeGeocoding(),
+      ]);
+      
+      // Clean up and format
+      final address = addressParts
+          .where((s) => s.isNotEmpty && !s.contains('+'))
+          .toSet() // Deduplicate overlapping data
+          .toList()
+          .join(', ');
+          
+      if (mounted) {
+        setState(() {
+          _resolvedAddress = address.isEmpty ? 'Unknown Location' : address;
+        });
+      }
     } catch (e) {
-      debugPrint('Geocoding error: $e');
+      debugPrint('Overall reverse geocoding error: $e');
     }
   }
 
