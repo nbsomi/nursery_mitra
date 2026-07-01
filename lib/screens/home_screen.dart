@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants/app_config.dart';
 import '../core/network/api_client.dart';
@@ -101,9 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
               title: const Text('Settings'),
               onTap: () {
                 Navigator.pop(context); // Close drawer
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Opening Settings...')),
-                );
+                _showSettingsDialog(context);
               },
             ),
           ],
@@ -120,6 +119,62 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _showSettingsDialog(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    String tempProvider = prefs.getString('geocodingProvider') ?? 'Merged';
+    final List<String> providers = ['Merged', 'Nominatim', 'BigDataCloud', 'Native Geocoding'];
+
+    if (!context.mounted) return;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Select Geocoding Provider'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: providers.map((p) {
+                  return RadioListTile<String>(
+                    title: Text(p),
+                    value: p,
+                    groupValue: tempProvider,
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() {
+                          tempProvider = val;
+                        });
+                      }
+                    },
+                  );
+                }).toList(),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    await prefs.setString('geocodingProvider', tempProvider);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Geocoding provider set to $tempProvider')),
+                      );
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

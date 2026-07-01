@@ -29,12 +29,6 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
   CameraController? _cameraController;
   bool _isCameraInitialized = false;
   
-  final TextEditingController _plantNameController = TextEditingController();
-  final TextEditingController _heightController = TextEditingController();
-  final TextEditingController _bagSizeController = TextEditingController();
-  final TextEditingController _remarksController = TextEditingController();
-
-  bool _autoApprove = false;
   bool _isSubmitting = false;
 
   @override
@@ -69,25 +63,11 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
   @override
   void dispose() {
     _cameraController?.dispose();
-    _plantNameController.dispose();
-    _heightController.dispose();
-    _bagSizeController.dispose();
-    _remarksController.dispose();
     super.dispose();
   }
 
   Future<void> _captureAndSubmit() async {
     if (_cameraController == null || !_cameraController!.value.isInitialized) return;
-    
-    if (_plantNameController.text.trim().isEmpty || _heightController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please fill out Plant Name and Height.'),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
-      return;
-    }
 
     setState(() {
       _isSubmitting = true;
@@ -154,55 +134,39 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
       final payload = ObservationPayload(
         visitId: widget.visitId,
         nurseryId: widget.nursery.nurseryId,
-        plantName: _plantNameController.text.trim(),
-        plantHeight: _heightController.text.trim(),
-        bagSize: _bagSizeController.text.trim(),
-        remarks: _remarksController.text.trim(),
+        plantName: '',
+        plantHeight: '',
+        bagSize: '',
+        remarks: '',
       );
 
       if (AppConfig.processingTiming == ProcessingTiming.later) {
         // Path A: ProcessingTiming.later
-        await _apiService.sendObservationStream(payload, image.path, _autoApprove);
+        await _apiService.sendObservationStream(payload, image.path, false);
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Observation saved for later processing.'),
+              content: const Text('Photo captured and saved for batch processing.'),
               backgroundColor: Colors.green.shade800,
             ),
           );
-          _plantNameController.clear();
-          _heightController.clear();
-          _bagSizeController.clear();
-          _remarksController.clear();
         }
       } else {
         // Path B: ProcessingTiming.immediate
         final review = await _apiService.sendObservationStream(
           payload,
           image.path,
-          _autoApprove,
+          false,
         );
 
         if (mounted) {
-          if (_autoApprove) {
-            // Sub-Path 1: Auto-Approve ON
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Success! Data integrated immediately.'),
-                backgroundColor: Colors.green.shade800,
-              ),
-            );
-            Navigator.pop(context); // Go back to Home Dashboard
-          } else {
-            // Sub-Path 2: Auto-Approve OFF
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ReviewScreen(reviewItem: review),
-              ),
-            );
-          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ReviewScreen(reviewItem: review),
+            ),
+          );
         }
       }
     } catch (e) {
@@ -232,10 +196,6 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Track keyboard height to dynamically shrink the camera view and keep inputs visible
-    final screenHeight = MediaQuery.of(context).size.height;
-    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
-    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Capture Plant Observation'),
@@ -282,112 +242,42 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
                 ),
               ),
               Expanded(
-                child: Column(
-                  children: [
-                    // Live Viewfinder (Upper Half)
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeInOut,
-                      height: viewInsets > 0 ? screenHeight * 0.15 : screenHeight * 0.35,
-                      width: double.infinity,
-                      color: Colors.black,
-                      child: _isCameraInitialized
-                          ? CameraPreview(_cameraController!)
-                          : const Center(
-                              child: CircularProgressIndicator(color: Colors.amber),
-                            ),
-                    ),
-                    
-                    // Data Entry Sheet (Lower Half)
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildTextField(
-                              controller: _plantNameController,
-                              label: 'Plant Name',
-                              icon: Icons.local_florist,
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildTextField(
-                                    controller: _heightController,
-                                    label: 'Height Dimensions (cm)',
-                                    icon: Icons.height,
-                                    inputType: TextInputType.number,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: _buildTextField(
-                                    controller: _bagSizeController,
-                                    label: 'Bag Size',
-                                    icon: Icons.shopping_bag,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            _buildTextField(
-                              controller: _remarksController,
-                              label: 'General Remarks',
-                              icon: Icons.notes,
-                              maxLines: 3,
-                            ),
-                            const SizedBox(height: 24),
-                            
-                            // The Bypass Toggle Engine
-                            Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.amber.shade700, width: 2),
-                                borderRadius: BorderRadius.circular(12),
-                                color: Colors.amber.withValues(alpha: 0.1),
-                              ),
-                              child: SwitchListTile(
-                                title: const Text(
-                                  'Auto-Approve Data Entry',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                subtitle: const Text('Commit directly without manual review phase'),
-                                activeThumbColor: Colors.amber.shade700,
-                                value: _autoApprove,
-                                onChanged: (bool value) {
-                                  setState(() {
-                                    _autoApprove = value;
-                                  });
-                                },
-                              ),
-                            ),
-                            
-                            const SizedBox(height: 24),
-                            SizedBox(
-                              height: 56,
-                              child: ElevatedButton.icon(
-                                onPressed: _isSubmitting ? null : _captureAndSubmit,
-                                icon: const Icon(Icons.cloud_upload),
-                                label: Text(
-                                  _isSubmitting ? 'Uploading Data...' : 'Capture & Submit',
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green.shade800,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 32),
-                          ],
+                child: Container(
+                  width: double.infinity,
+                  color: Colors.black,
+                  child: _isCameraInitialized
+                      ? Center(
+                          child: AspectRatio(
+                            aspectRatio: 1 / _cameraController!.value.aspectRatio,
+                            child: CameraPreview(_cameraController!),
+                          ),
+                        )
+                      : const Center(
+                          child: CircularProgressIndicator(color: Colors.amber),
                         ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(16.0),
+                color: Colors.white,
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 64,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSubmitting ? null : _captureAndSubmit,
+                    icon: const Icon(Icons.camera_alt, size: 28),
+                    label: Text(
+                      _isSubmitting ? 'Processing...' : 'Capture Photo',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green.shade800,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -405,30 +295,4 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    TextInputType inputType = TextInputType.text,
-    int maxLines = 1,
-  }) {
-    return TextField(
-      controller: controller,
-      keyboardType: inputType,
-      maxLines: maxLines,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: maxLines == 1 ? Icon(icon, color: Colors.green.shade700) : null,
-        alignLabelWithHint: maxLines > 1,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.green.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.green.shade800, width: 2),
-        ),
-      ),
-    );
-  }
 }

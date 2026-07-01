@@ -20,6 +20,18 @@ if (Test-Path $otaFilePath) {
     Write-Host "  -> WARNING: Could not find $otaFilePath"
 }
 
+# 1.5 Update the version in pubspec.yaml
+$pubspecPath = "pubspec.yaml"
+Write-Host "`n[1.5/4] Updating pubspec.yaml target version..."
+if (Test-Path $pubspecPath) {
+    $content = Get-Content $pubspecPath
+    $content = $content -replace '^version: .*', "version: $Version"
+    Set-Content -Path $pubspecPath -Value $content
+    Write-Host "  -> Updated pubspec.yaml to version $Version"
+} else {
+    Write-Host "  -> WARNING: Could not find $pubspecPath"
+}
+
 # 2. Build the Flutter APK
 Write-Host "`n[2/4] Compiling Flutter Release APK (this may take a minute)..."
 flutter build apk --release
