@@ -66,7 +66,7 @@ class ApiService {
   }
 
   Future<NurseryModel> submitGeoTaggedNursery(
-      String name, String? farmerName, double lat, double lng) async {
+      String name, String? farmerName, double lat, double lng, String? phone1, String? phone2) async {
     try {
       final uri = _buildUri(ApiEndpoints.createManualNursery);
       final body = jsonEncode({
@@ -74,6 +74,8 @@ class ApiService {
         'farmer_name': farmerName,
         'latitude': lat,
         'longitude': lng,
+        'phone1': phone1,
+        'phone2': phone2,
       });
 
       final response = await _apiClient.post(uri, body: body);

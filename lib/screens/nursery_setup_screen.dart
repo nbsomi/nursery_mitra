@@ -7,6 +7,8 @@ import '../core/network/api_client.dart';
 import '../services/api_service.dart';
 import '../models/nursery_model.dart';
 import 'plant_capture_screen.dart';
+import 'package:latlong2/latlong.dart';
+import 'location_picker_screen.dart';
 
 class NurserySetupScreen extends StatefulWidget {
   const NurserySetupScreen({Key? key}) : super(key: key);
@@ -19,13 +21,16 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
   late final ApiService _apiService;
 
   // Location State
-  StreamSubscription<Position>? _positionStream;
   Position? _currentPosition;
+  LatLng? _pickedLocation;
+  StreamSubscription<Position>? _positionStream;
   bool _locationPermissionGranted = false;
 
   // Form State
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _farmerNameController = TextEditingController();
+  final TextEditingController _phone1Controller = TextEditingController();
+  final TextEditingController _phone2Controller = TextEditingController();
   int _selectedMethod = 0; // 0: Auto, 1: Manual, 2: Existing
   bool _isLoading = false;
   Future<List<NurseryModel>>? _nurseriesFuture;
@@ -37,6 +42,8 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
     _apiService = ApiService(ApiClient());
     _nameController.addListener(_onFormChanged);
     _farmerNameController.addListener(_onFormChanged);
+    _phone1Controller.addListener(_onFormChanged);
+    _phone2Controller.addListener(_onFormChanged);
     _checkPermissionsAndStartLocation();
     _nurseriesFuture = _apiService.fetchNurseries();
     _nurseriesFuture!.then((nurseries) {
@@ -101,6 +108,8 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
     _positionStream?.cancel();
     _nameController.dispose();
     _farmerNameController.dispose();
+    _phone1Controller.dispose();
+    _phone2Controller.dispose();
     super.dispose();
   }
 
@@ -247,7 +256,7 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
   }
 
   Future<void> _submitManualEntry() async {
-    if (_currentPosition == null) return;
+    if (_currentPosition == null && _pickedLocation == null) return;
     if (!await _shouldProceedWithCreation()) return;
 
     setState(() {
@@ -255,11 +264,16 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
     });
 
     try {
+      final lat = _pickedLocation?.latitude ?? _currentPosition!.latitude;
+      final lng = _pickedLocation?.longitude ?? _currentPosition!.longitude;
+
       final nursery = await _apiService.submitGeoTaggedNursery(
         _nameController.text.trim(),
         _farmerNameController.text.trim().isNotEmpty ? _farmerNameController.text.trim() : null,
-        _currentPosition!.latitude,
-        _currentPosition!.longitude,
+        lat,
+        lng,
+        _phone1Controller.text.trim().isNotEmpty ? _phone1Controller.text.trim() : null,
+        _phone2Controller.text.trim().isNotEmpty ? _phone2Controller.text.trim() : null,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -290,8 +304,9 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
 
   bool _isManualFormValid() {
     if (_nameController.text.trim().isEmpty) return false;
-    if (_currentPosition == null) return false;
-    if (_currentPosition!.accuracy >= 15.0) return false; // Strict spatial validation
+    if (_currentPosition == null && _pickedLocation == null) return false;
+    // Spatial validation only if we haven't manually picked location
+    if (_pickedLocation == null && _currentPosition != null && _currentPosition!.accuracy >= 15.0) return false; 
     return true;
   }
 
@@ -344,17 +359,47 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Real-time Spatial Telemetry',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Real-time Spatial Telemetry',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              if (_currentPosition != null)
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final initialLoc = _pickedLocation ?? LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => LocationPickerScreen(initialLocation: initialLoc),
+                      ),
+                    );
+                    if (result != null && result is LatLng) {
+                      setState(() {
+                        _pickedLocation = result;
+                      });
+                    }
+                  },
+                  icon: const Icon(Icons.map, size: 14),
+                  label: const Text('Map'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white54),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
-          if (_currentPosition != null)
+          if (_currentPosition != null || _pickedLocation != null)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -362,30 +407,39 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'LAT: ${_currentPosition!.latitude.toStringAsFixed(5)}',
+                      'LAT: ${_pickedLocation?.latitude.toStringAsFixed(5) ?? _currentPosition!.latitude.toStringAsFixed(5)}',
                       style: const TextStyle(color: Colors.white, fontFamily: 'monospace'),
                     ),
                     Text(
-                      'LNG: ${_currentPosition!.longitude.toStringAsFixed(5)}',
+                      'LNG: ${_pickedLocation?.longitude.toStringAsFixed(5) ?? _currentPosition!.longitude.toStringAsFixed(5)}',
                       style: const TextStyle(color: Colors.white, fontFamily: 'monospace'),
                     ),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: _currentPosition!.accuracy < 15.0 ? Colors.green.shade700 : Colors.red.shade700,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    'ACC: ${_currentPosition!.accuracy.toStringAsFixed(1)} m',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                if (_pickedLocation != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade700,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'MANUAL',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _currentPosition!.accuracy < 15.0 ? Colors.green.shade700 : Colors.red.shade700,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'ACC: ${_currentPosition!.accuracy.toStringAsFixed(1)} m',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                   ),
-                ),
               ],
             )
           else
@@ -501,6 +555,34 @@ class _NurserySetupScreenState extends State<NurserySetupScreen> {
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 prefixIcon: const Icon(Icons.person),
               ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _phone1Controller,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      labelText: 'Primary Phone',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      prefixIcon: const Icon(Icons.phone),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: TextField(
+                    controller: _phone2Controller,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      labelText: 'Alt Phone',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      prefixIcon: const Icon(Icons.phone),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             SizedBox(

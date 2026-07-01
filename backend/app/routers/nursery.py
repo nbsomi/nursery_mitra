@@ -17,7 +17,8 @@ class NurseryCreateRequest(BaseModel):
     farmer_name: Optional[str] = None
     latitude: float
     longitude: float
-    phone: Optional[str] = None
+    phone1: Optional[str] = None
+    phone2: Optional[str] = None
 
 @router.get("/", status_code=status.HTTP_200_OK)
 def get_nurseries(db: Session = Depends(get_db)):
@@ -31,7 +32,8 @@ def get_nurseries(db: Session = Depends(get_db)):
                 "latitude": nursery.Latitude,
                 "longitude": nursery.Longitude,
                 "address": nursery.Address,
-                "phone": nursery.Phone,
+                "phone1": nursery.Phone1,
+                "phone2": nursery.Phone2,
                 "firstSeenDate": nursery.FirstSeenDate.isoformat() if nursery.FirstSeenDate else None,
                 "lastVerifiedDate": nursery.LastVerifiedDate.isoformat() if nursery.LastVerifiedDate else None
             }
@@ -53,7 +55,8 @@ def create_manual_nursery(nursery_req: NurseryCreateRequest, db: Session = Depen
             FarmerName=nursery_req.farmer_name,
             Latitude=nursery_req.latitude,
             Longitude=nursery_req.longitude,
-            Phone=nursery_req.phone
+            Phone1=nursery_req.phone1,
+            Phone2=nursery_req.phone2
         )
         db.add(nursery)
         db.commit()
@@ -66,7 +69,8 @@ def create_manual_nursery(nursery_req: NurseryCreateRequest, db: Session = Depen
             "latitude": nursery.Latitude,
             "longitude": nursery.Longitude,
             "address": nursery.Address,
-            "phone": nursery.Phone,
+            "phone1": nursery.Phone1,
+            "phone2": nursery.Phone2,
             "firstSeenDate": nursery.FirstSeenDate.isoformat() if nursery.FirstSeenDate else None,
             "lastVerifiedDate": nursery.LastVerifiedDate.isoformat() if nursery.LastVerifiedDate else None
         }
@@ -100,7 +104,9 @@ async def upload_signboard(file: UploadFile = File(...), db: Session = Depends(g
             FarmerName=None,
             Latitude=0.0,
             Longitude=0.0,
-            Address="Signboard Image Stored, Awaiting AI Extraction"
+            Address="Signboard Image Stored, Awaiting AI Extraction",
+            Phone1=None,
+            Phone2=None
         )
         db.add(nursery)
         db.commit()
@@ -113,7 +119,8 @@ async def upload_signboard(file: UploadFile = File(...), db: Session = Depends(g
             "latitude": nursery.Latitude,
             "longitude": nursery.Longitude,
             "address": nursery.Address,
-            "phone": nursery.Phone,
+            "phone1": nursery.Phone1,
+            "phone2": nursery.Phone2,
             "firstSeenDate": nursery.FirstSeenDate.isoformat() if nursery.FirstSeenDate else None,
             "lastVerifiedDate": nursery.LastVerifiedDate.isoformat() if nursery.LastVerifiedDate else None,
             "signboard_path": file_path

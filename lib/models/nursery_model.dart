@@ -5,7 +5,8 @@ class NurseryModel {
   final double latitude;
   final double longitude;
   final String address;
-  final String phone;
+  final String phone1;
+  final String phone2;
   final String firstSeenDate;
   final String lastVerifiedDate;
 
@@ -16,7 +17,8 @@ class NurseryModel {
     required this.latitude,
     required this.longitude,
     required this.address,
-    required this.phone,
+    required this.phone1,
+    required this.phone2,
     required this.firstSeenDate,
     required this.lastVerifiedDate,
   });
@@ -29,7 +31,8 @@ class NurseryModel {
       latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
       address: json['address'] as String? ?? '',
-      phone: json['phone'] as String? ?? '',
+      phone1: json['phone1'] as String? ?? '',
+      phone2: json['phone2'] as String? ?? '',
       firstSeenDate: json['firstSeenDate'] as String? ?? '',
       lastVerifiedDate: json['lastVerifiedDate'] as String? ?? '',
     );
@@ -43,7 +46,8 @@ class NurseryModel {
       'latitude': latitude,
       'longitude': longitude,
       'address': address,
-      'phone': phone,
+      'phone1': phone1,
+      'phone2': phone2,
       'firstSeenDate': firstSeenDate,
       'lastVerifiedDate': lastVerifiedDate,
     };

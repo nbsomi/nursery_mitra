@@ -12,7 +12,8 @@ class Nurseries(Base):
     Latitude = Column(Float, nullable=False)
     Longitude = Column(Float, nullable=False)
     Address = Column(String, nullable=True)
-    Phone = Column(String, nullable=True)
+    Phone1 = Column(String, nullable=True)
+    Phone2 = Column(String, nullable=True)
     FirstSeenDate = Column(DateTime(timezone=True), default=func.now())
     LastVerifiedDate = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
 
