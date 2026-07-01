@@ -125,7 +125,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _showSettingsDialog(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     String tempProvider = prefs.getString('geocodingProvider') ?? 'Merged';
+    String tempProcessingMode = prefs.getString('processingMode') ?? 'Batch Processing (Active)';
+    
     final List<String> providers = ['Merged', 'Nominatim', 'BigDataCloud', 'Native Geocoding'];
+    final List<String> processingModes = ['Batch Processing (Active)', 'Real-time Processing (Future Use)'];
 
     if (!context.mounted) return;
 
@@ -135,23 +138,45 @@ class _HomeScreenState extends State<HomeScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Select Geocoding Provider'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: providers.map((p) {
-                  return RadioListTile<String>(
-                    title: Text(p),
-                    value: p,
-                    groupValue: tempProvider,
-                    onChanged: (val) {
-                      if (val != null) {
-                        setDialogState(() {
-                          tempProvider = val;
-                        });
-                      }
-                    },
-                  );
-                }).toList(),
+              title: const Text('App Settings'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Geocoding Provider', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ...providers.map((p) {
+                      return RadioListTile<String>(
+                        title: Text(p),
+                        value: p,
+                        groupValue: tempProvider,
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDialogState(() {
+                              tempProvider = val;
+                            });
+                          }
+                        },
+                      );
+                    }).toList(),
+                    const Divider(),
+                    const Text('Processing Mode', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ...processingModes.map((m) {
+                      return RadioListTile<String>(
+                        title: Text(m),
+                        value: m,
+                        groupValue: tempProcessingMode,
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDialogState(() {
+                              tempProcessingMode = val;
+                            });
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -161,10 +186,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 TextButton(
                   onPressed: () async {
                     await prefs.setString('geocodingProvider', tempProvider);
+                    await prefs.setString('processingMode', tempProcessingMode);
                     if (context.mounted) {
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Geocoding provider set to $tempProvider')),
+                        const SnackBar(content: Text('Settings saved successfully.')),
                       );
                     }
                   },

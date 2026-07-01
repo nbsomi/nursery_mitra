@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:geolocator/geolocator.dart';
 
@@ -28,14 +30,45 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
   late final ApiService _apiService;
   CameraController? _cameraController;
   bool _isCameraInitialized = false;
+  XFile? _capturedImage;
   
   bool _isSubmitting = false;
+
+  int _plantSeq = 1;
+  int _imageSeq = 1;
 
   @override
   void initState() {
     super.initState();
     _apiService = ApiService(ApiClient());
+    _loadSequences();
     _initializeCamera();
+  }
+
+  Future<void> _loadSequences() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = '${widget.nursery.nurseryId}_plantSeq';
+    if (mounted) {
+      setState(() {
+        _plantSeq = prefs.getInt(key) ?? 1;
+      });
+    }
+  }
+
+  Future<void> _nextPlant() async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = '${widget.nursery.nurseryId}_plantSeq';
+    setState(() {
+      _plantSeq++;
+      _imageSeq = 1;
+      _capturedImage = null;
+    });
+    await prefs.setInt(key, _plantSeq);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Started Plant #$_plantSeq')),
+      );
+    }
   }
 
   Future<void> _initializeCamera() async {
@@ -66,8 +99,20 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
     super.dispose();
   }
 
-  Future<void> _captureAndSubmit() async {
+  Future<void> _takePicture() async {
     if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+    try {
+      final image = await _cameraController!.takePicture();
+      setState(() {
+        _capturedImage = image;
+      });
+    } catch (e) {
+      debugPrint('Error taking picture: $e');
+    }
+  }
+
+  Future<void> _uploadImage() async {
+    if (_capturedImage == null) return;
 
     setState(() {
       _isSubmitting = true;
@@ -128,13 +173,11 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
           });
         }
       }
-
-      final image = await _cameraController!.takePicture();
       
       final payload = ObservationPayload(
         visitId: widget.visitId,
         nurseryId: widget.nursery.nurseryId,
-        plantName: '',
+        plantName: '${widget.nursery.nurseryId}_plant_${_plantSeq}_${_imageSeq}',
         plantHeight: '',
         bagSize: '',
         remarks: '',
@@ -142,7 +185,7 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
 
       if (AppConfig.processingTiming == ProcessingTiming.later) {
         // Path A: ProcessingTiming.later
-        await _apiService.sendObservationStream(payload, image.path, false);
+        await _apiService.sendObservationStream(payload, _capturedImage!.path, false);
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -151,16 +194,24 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
               backgroundColor: Colors.green.shade800,
             ),
           );
+          setState(() {
+            _imageSeq++;
+            _capturedImage = null; // Reset for the next photo
+          });
         }
       } else {
         // Path B: ProcessingTiming.immediate
         final review = await _apiService.sendObservationStream(
           payload,
-          image.path,
+          _capturedImage!.path,
           false,
         );
 
         if (mounted) {
+          setState(() {
+            _imageSeq++;
+            _capturedImage = null; // Reset for the next photo
+          });
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -219,7 +270,7 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '📍 ${widget.nursery.name}',
+                            '📍 ${widget.nursery.name} (Plant #$_plantSeq)',
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                           ),
                           if (widget.nursery.farmerName.isNotEmpty)
@@ -245,40 +296,111 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
                 child: Container(
                   width: double.infinity,
                   color: Colors.black,
-                  child: _isCameraInitialized
+                  child: _capturedImage != null
                       ? Center(
                           child: AspectRatio(
                             aspectRatio: 1 / _cameraController!.value.aspectRatio,
-                            child: CameraPreview(_cameraController!),
+                            child: Image.file(
+                              File(_capturedImage!.path),
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         )
-                      : const Center(
-                          child: CircularProgressIndicator(color: Colors.amber),
-                        ),
+                      : _isCameraInitialized
+                          ? Center(
+                              child: AspectRatio(
+                                aspectRatio: 1 / _cameraController!.value.aspectRatio,
+                                child: CameraPreview(_cameraController!),
+                              ),
+                            )
+                          : const Center(
+                              child: CircularProgressIndicator(color: Colors.amber),
+                            ),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.all(16.0),
                 color: Colors.white,
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 64,
-                  child: ElevatedButton.icon(
-                    onPressed: _isSubmitting ? null : _captureAndSubmit,
-                    icon: const Icon(Icons.camera_alt, size: 28),
-                    label: Text(
-                      _isSubmitting ? 'Processing...' : 'Capture Photo',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green.shade800,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                child: _capturedImage != null
+                    ? Row(
+                        children: [
+                          Expanded(
+                            child: SizedBox(
+                              height: 64,
+                              child: OutlinedButton.icon(
+                                onPressed: _isSubmitting ? null : () => setState(() => _capturedImage = null),
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Retake', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.green.shade800,
+                                  side: BorderSide(color: Colors.green.shade800, width: 2),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: SizedBox(
+                              height: 64,
+                              child: ElevatedButton.icon(
+                                onPressed: _isSubmitting ? null : _uploadImage,
+                                icon: const Icon(Icons.cloud_upload),
+                                label: Text(
+                                  _isSubmitting ? 'Uploading...' : 'Upload',
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green.shade800,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(
+                            flex: 1,
+                            child: SizedBox(
+                              height: 64,
+                              child: OutlinedButton(
+                                onPressed: _isSubmitting ? null : _nextPlant,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.green.shade800,
+                                  side: BorderSide(color: Colors.green.shade800, width: 2),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                ),
+                                child: const Text('Next\nPlant', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: SizedBox(
+                              height: 64,
+                              child: ElevatedButton.icon(
+                                onPressed: _isSubmitting ? null : _takePicture,
+                                icon: const Icon(Icons.camera_alt, size: 24),
+                                label: Text(
+                                  _isSubmitting ? 'Wait...' : 'Capture Photo',
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green.shade800,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ),
-                ),
               ),
             ],
           ),
