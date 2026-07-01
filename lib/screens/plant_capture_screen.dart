@@ -282,109 +282,112 @@ class _PlantCaptureScreenState extends State<PlantCaptureScreen> {
                 ),
               ),
               Expanded(
-            child: Column(
-              children: [
-              // Live Viewfinder (Upper Half)
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeInOut,
-                height: viewInsets > 0 ? screenHeight * 0.15 : screenHeight * 0.35,
-                width: double.infinity,
-                color: Colors.black,
-                child: _isCameraInitialized
-                    ? CameraPreview(_cameraController!)
-                    : const Center(
-                        child: CircularProgressIndicator(color: Colors.amber),
-                      ),
-              ),
-              
-              // Data Entry Sheet (Lower Half)
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildTextField(
-                        controller: _plantNameController,
-                        label: 'Plant Name',
-                        icon: Icons.local_florist,
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildTextField(
-                              controller: _heightController,
-                              label: 'Height Dimensions (cm)',
-                              icon: Icons.height,
-                              inputType: TextInputType.number,
+                child: Column(
+                  children: [
+                    // Live Viewfinder (Upper Half)
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeInOut,
+                      height: viewInsets > 0 ? screenHeight * 0.15 : screenHeight * 0.35,
+                      width: double.infinity,
+                      color: Colors.black,
+                      child: _isCameraInitialized
+                          ? CameraPreview(_cameraController!)
+                          : const Center(
+                              child: CircularProgressIndicator(color: Colors.amber),
                             ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _buildTextField(
-                              controller: _bagSizeController,
-                              label: 'Bag Size',
-                              icon: Icons.shopping_bag,
+                    ),
+                    
+                    // Data Entry Sheet (Lower Half)
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildTextField(
+                              controller: _plantNameController,
+                              label: 'Plant Name',
+                              icon: Icons.local_florist,
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: _remarksController,
-                        label: 'General Remarks',
-                        icon: Icons.notes,
-                        maxLines: 3,
-                      ),
-                      const SizedBox(height: 24),
-                      
-                      // The Bypass Toggle Engine
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.amber.shade700, width: 2),
-                          borderRadius: BorderRadius.circular(12),
-                          color: Colors.amber.withOpacity(0.1),
-                        ),
-                        child: SwitchListTile(
-                          title: const Text(
-                            'Auto-Approve Data Entry',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: const Text('Commit directly without manual review phase'),
-                          activeColor: Colors.amber.shade700,
-                          value: _autoApprove,
-                          onChanged: (bool value) {
-                            setState(() {
-                              _autoApprove = value;
-                            });
-                          },
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        height: 56,
-                        child: ElevatedButton.icon(
-                          onPressed: _isSubmitting ? null : _captureAndSubmit,
-                          icon: const Icon(Icons.cloud_upload),
-                          label: Text(
-                            _isSubmitting ? 'Uploading Data...' : 'Capture & Submit',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green.shade800,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildTextField(
+                                    controller: _heightController,
+                                    label: 'Height Dimensions (cm)',
+                                    icon: Icons.height,
+                                    inputType: TextInputType.number,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildTextField(
+                                    controller: _bagSizeController,
+                                    label: 'Bag Size',
+                                    icon: Icons.shopping_bag,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
+                            const SizedBox(height: 16),
+                            _buildTextField(
+                              controller: _remarksController,
+                              label: 'General Remarks',
+                              icon: Icons.notes,
+                              maxLines: 3,
+                            ),
+                            const SizedBox(height: 24),
+                            
+                            // The Bypass Toggle Engine
+                            Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.amber.shade700, width: 2),
+                                borderRadius: BorderRadius.circular(12),
+                                color: Colors.amber.withOpacity(0.1),
+                              ),
+                              child: SwitchListTile(
+                                title: const Text(
+                                  'Auto-Approve Data Entry',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                subtitle: const Text('Commit directly without manual review phase'),
+                                activeColor: Colors.amber.shade700,
+                                value: _autoApprove,
+                                onChanged: (bool value) {
+                                  setState(() {
+                                    _autoApprove = value;
+                                  });
+                                },
+                              ),
+                            ),
+                            
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              height: 56,
+                              child: ElevatedButton.icon(
+                                onPressed: _isSubmitting ? null : _captureAndSubmit,
+                                icon: const Icon(Icons.cloud_upload),
+                                label: Text(
+                                  _isSubmitting ? 'Uploading Data...' : 'Capture & Submit',
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green.shade800,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 32),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ],
