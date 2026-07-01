@@ -4,6 +4,6 @@ enum ProcessingTiming {
 }
 
 class AppConfig {
-  static const String baseUrl = '';
+  static const String baseUrl = 'https://api.nurserymitra.in';
   static ProcessingTiming processingTiming = ProcessingTiming.immediate;
 }
