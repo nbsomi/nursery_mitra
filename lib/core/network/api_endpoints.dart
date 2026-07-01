@@ -1,7 +1,7 @@
 class ApiEndpoints {
   static const String telemetry = '/telemetry';
-  static const String uploadSignboard = '/upload_signboard';
-  static const String createManualNursery = '/create_manual_nursery';
-  static const String uploadObservation = '/upload_observation';
-  static const String confirmReview = '/confirm_review';
+  static const String uploadSignboard = '/nursery/upload-signboard';
+  static const String createManualNursery = '/nursery/create-manual';
+  static const String uploadObservation = '/observations/upload';
+  static const String confirmReview = '/observations/confirm-review';
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/network/api_client.dart';
 import '../services/api_service.dart';
+import 'nursery_setup_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -179,9 +180,11 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: Icons.add_location_alt,
           color: Colors.teal,
           onTap: () {
-            // Routing placeholder linking forward to the setup phase
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Navigating to Field Visit Setup...')),
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const NurserySetupScreen(),
+              ),
             );
           },
         ),
