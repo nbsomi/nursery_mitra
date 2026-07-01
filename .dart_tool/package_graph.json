@@ -5,7 +5,7 @@
   "packages": [
     {
       "name": "nursery_mitra",
-      "version": "1.0.17",
+      "version": "1.0.18",
       "dependencies": [
         "camera",
         "flutter",
